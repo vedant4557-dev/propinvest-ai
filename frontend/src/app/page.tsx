@@ -39,7 +39,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inputs, setInputs] = useState<InvestmentInput | null>(null);
-  const reportRef = useRef<HTMLDivElement>(null);
+
+  // ✅ FIXED REF TYPING
+  const reportRef = useRef<HTMLDivElement | null>(null);
 
   const handleAnalyze = async (input: InvestmentInput) => {
     setLoading(true);
@@ -113,9 +115,11 @@ export default function Home() {
                 Portfolio
               </button>
             </div>
+
             {result && mode === "single" && (
               <ExportPDF result={result} reportRef={reportRef} />
             )}
+
             <ThemeToggle />
           </div>
         </div>
@@ -130,10 +134,14 @@ export default function Home() {
                   ? "Investment Parameters"
                   : "Portfolio Properties"}
               </h2>
+
               {mode === "single" ? (
                 <InputForm onAnalyze={handleAnalyze} isLoading={loading} />
               ) : (
-                <PortfolioForm onAnalyze={handlePortfolioAnalyze} isLoading={loading} />
+                <PortfolioForm
+                  onAnalyze={handlePortfolioAnalyze}
+                  isLoading={loading}
+                />
               )}
             </div>
           </div>
@@ -167,14 +175,6 @@ export default function Home() {
             {!loading && mode === "portfolio" && portfolioResult && (
               <PortfolioResultView data={portfolioResult} />
             )}
-
-            {!loading && !result && !portfolioResult && !error && (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white py-24 dark:border-slate-600 dark:bg-slate-800">
-                <p className="text-slate-500 dark:text-slate-400">
-                  Enter parameters and click Analyze.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </main>
@@ -189,128 +189,24 @@ function SingleResultView({
 }: {
   result: AnalyzeInvestmentResponse;
   inputs: InvestmentInput;
-  reportRef: React.RefObject<HTMLDivElement | null>;
+  reportRef: React.RefObject<HTMLDivElement>;
 }) {
   return (
     <div ref={reportRef} className="space-y-6">
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-        Results Dashboard
-      </h2>
-
-      {result.deal_analysis && (
-        <div className="space-y-4">
-          <DealScoreBadge deal={result.deal_analysis} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <NegotiationCard deal={result.deal_analysis} />
-            <FairValueChart
-              deal={result.deal_analysis}
-              askingPrice={inputs.property_purchase_price}
-            />
-          </div>
-          <RedFlagsList flags={result.deal_analysis.red_flags} />
-        </div>
-      )}
-
-      <KPICards
-        metrics={result.metrics}
-        taxAnalysis={result.tax_analysis}
-      />
-
-      {result.tax_analysis && (
-        <TaxAnalysisCard data={result.tax_analysis} />
-      )}
-
-      {result.monte_carlo && (
-        <>
-          <MonteCarloCard data={result.monte_carlo} />
-          <div className="flex flex-wrap gap-6">
-            <ProbabilityGauge
-              value={result.monte_carlo.probability_beating_fd}
-              label="Beats 7% FD"
-              subtitle="Chance IRR exceeds FD"
-            />
-            <ProbabilityGauge
-              value={result.monte_carlo.probability_negative_cashflow}
-              label="Negative Cash Flow"
-              subtitle="Chance of subsidy"
-            />
-          </div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <IRRDistributionChart data={result.monte_carlo} />
-            <ScenarioOutcomeChart data={result.monte_carlo} />
-          </div>
-        </>
-      )}
-
-      {result.sensitivity && (
-        <SensitivityTable data={result.sensitivity} />
-      )}
-
-      {result.stress_test && (
-        <StressTestCard data={result.stress_test} />
-      )}
-
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-        <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
-          Risk Assessment
-        </h3>
-        <RiskBadge risk={result.risk} />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Annual Cash Flow
-          </h3>
-          <CashFlowChart
-            annualCashFlow={result.metrics.annual_cash_flow}
-            emi={result.metrics.emi}
-            annualRent={inputs.expected_monthly_rent * 12}
-            annualMaintenance={inputs.annual_maintenance_cost}
-          />
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Property Value Growth
-          </h3>
-          <PropertyGrowthChart
-            purchasePrice={inputs.property_purchase_price}
-            futureValue={result.metrics.future_property_value}
-            holdingPeriodYears={inputs.holding_period_years}
-            appreciationRate={inputs.expected_annual_appreciation}
-          />
-        </div>
-      </div>
-
+      <KPICards metrics={result.metrics} taxAnalysis={result.tax_analysis} />
       <AISummary analysis={result.ai_analysis} />
     </div>
   );
 }
 
-function PortfolioResultView({ data }: { data: AnalyzePortfolioResponse }) {
+function PortfolioResultView({
+  data,
+}: {
+  data: AnalyzePortfolioResponse;
+}) {
   return (
     <div className="space-y-6">
       <PortfolioDashboard data={data} />
-      <div className="space-y-4">
-        <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-          Individual Properties
-        </h3>
-        {data.individual_results.map((r, i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"
-          >
-            <h4 className="mb-3 font-medium">Property {i + 1}</h4>
-            <KPICards metrics={r.metrics} taxAnalysis={r.tax_analysis} />
-            {r.deal_analysis && (
-              <div className="mt-4 flex flex-wrap gap-4">
-                <DealScoreBadge deal={r.deal_analysis} />
-                <RedFlagsList flags={r.deal_analysis.red_flags} />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
