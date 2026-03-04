@@ -1,43 +1,35 @@
-/**
- * API client for PropInvest AI backend.
- */
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://propinvest-ai-production.up.railway.app";
 
-import type {
-  InvestmentInput,
-  AnalyzeInvestmentResponse,
-  AnalyzePortfolioResponse,
-} from "@/types/investment";
+export async function analyzeInvestment(data: any) {
+  const res = await fetch(`${API_URL}/analyze-investment`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const message =
-      (err as { detail?: string })?.detail ?? `HTTP ${res.status}`;
-    throw new Error(message);
+    throw new Error("API error");
   }
+
   return res.json();
 }
 
-export async function analyzeInvestment(
-  input: InvestmentInput
-): Promise<AnalyzeInvestmentResponse> {
-  const res = await fetch(`${API_BASE}/analyze-investment`, {
+export async function analyzePortfolio(data: any) {
+  const res = await fetch(`${API_URL}/analyze-portfolio`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
   });
-  return handleResponse<AnalyzeInvestmentResponse>(res);
-}
 
-export async function analyzePortfolio(
-  investments: InvestmentInput[]
-): Promise<AnalyzePortfolioResponse> {
-  const res = await fetch(`${API_BASE}/analyze-portfolio`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ investments }),
-  });
-  return handleResponse<AnalyzePortfolioResponse>(res);
+  if (!res.ok) {
+    throw new Error("API error");
+  }
+
+  return res.json();
 }
