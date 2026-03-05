@@ -6,14 +6,15 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.routes.analyze import router as analyze_router
+
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
-from fastapi.middleware.cors import CORSMiddleware
-
-from app.routes.analyze import router as analyze_router
 
 
 @asynccontextmanager
@@ -29,9 +30,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# IMPORTANT: allow requests from Vercel + local
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://propinvest-ai-smoky.vercel.app",
+        "https://*.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
