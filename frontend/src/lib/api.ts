@@ -11,6 +11,10 @@ export async function analyzeInvestment(data: any) {
     body: JSON.stringify(data),
   });
 
+  if (!res.ok) {
+    throw new Error("API request failed");
+  }
+
   return res.json();
 }
 
@@ -22,6 +26,10 @@ export async function analyzePortfolio(data: any) {
     },
     body: JSON.stringify(data),
   });
+
+  if (!res.ok) {
+    throw new Error("API request failed");
+  }
 
   return res.json();
 }
