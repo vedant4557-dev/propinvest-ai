@@ -1,198 +1,139 @@
 """
-Enhanced Risk Model - Weighted scoring system.
-
-Weights:
-- Cash flow: 30%
-- IRR vs FD: 25%
-- LTV: 20%
-- Appreciation: 15%
-- Rental yield: 10%
-
-Score 1-100. Labels:
-- Low Risk: 0-35
-- Moderate Risk: 36-65
-- High Risk: 66-100
+Risk Scorer — PropInvest AI V3
+Weighted 0-100 score across 7 dimensions.
 """
-
-from typing import Literal
-
-from app.models.investment import (
-    InvestmentInput,
-    InvestmentMetrics,
-    RiskAssessment,
-    RiskBreakdown,
-)
-
-FD_RATE = 7.0  # 7% FD benchmark
-
-WEIGHTS = {
-    "cash_flow": 0.30,
-    "irr": 0.25,
-    "ltv": 0.20,
-    "appreciation": 0.15,
-    "yield": 0.10,
-}
+from app.models.schemas import InvestmentMetrics, RiskAssessment, RiskBreakdown
 
 
-def _score_cash_flow(annual_cash_flow: float) -> float:
-    """
-    Score 0-100. Higher = lower risk.
-    Negative CF = high risk (0-20). Positive CF = lower risk.
-    """
-    if annual_cash_flow >= 100_000:
-        return 100
-    if annual_cash_flow >= 50_000:
-        return 80
-    if annual_cash_flow >= 0:
-        return 60
-    if annual_cash_flow >= -50_000:
-        return 35
-    if annual_cash_flow >= -100_000:
-        return 15
+def _score_cash_flow(cf: float) -> float:
+    """0-100: positive cash flow = good."""
+    if cf >= 10_000: return 100
+    if cf >= 0:      return 60 + cf / 10_000 * 40
+    if cf >= -20_000: return 60 + cf / 20_000 * 60   # 0-60
     return 0
 
 
 def _score_irr(irr: float) -> float:
-    """
-    Score 0-100. Higher IRR = lower risk.
-    IRR >= 10% = 100. IRR < 5% = 0-30.
-    """
-    if irr >= 12:
-        return 100
-    if irr >= 10:
-        return 90
-    if irr >= 8:
-        return 75
-    if irr >= FD_RATE:
-        return 60
-    if irr >= 5:
-        return 40
-    if irr >= 0:
-        return 20
+    """0-100: IRR vs benchmarks."""
+    if irr >= 15:    return 100
+    if irr >= 12:    return 85
+    if irr >= 10:    return 75
+    if irr >= 7:     return 60   # beats FD
+    if irr >= 5:     return 40
+    if irr >= 0:     return 20
     return 0
 
 
 def _score_ltv(ltv: float) -> float:
-    """
-    Score 0-100. Lower LTV = lower risk.
-    LTV <= 60% = 100. LTV >= 90% = 0.
-    """
-    if ltv <= 60:
-        return 100
-    if ltv <= 70:
-        return 80
-    if ltv <= 80:
-        return 60
-    if ltv <= 85:
-        return 35
-    return max(0, 50 - ltv)
+    """0-100: lower LTV = lower risk."""
+    if ltv <= 50:    return 100
+    if ltv <= 60:    return 85
+    if ltv <= 70:    return 70
+    if ltv <= 80:    return 50
+    if ltv <= 90:    return 25
+    return 10
 
 
-def _score_appreciation(appreciation: float) -> float:
-    """
-    Score 0-100. Higher appreciation = lower risk.
-    """
-    if appreciation >= 8:
-        return 100
-    if appreciation >= 6:
-        return 80
-    if appreciation >= 5:
-        return 65
-    if appreciation >= 3:
-        return 45
-    if appreciation >= 0:
-        return 25
+def _score_appreciation(rate: float) -> float:
+    """0-100: appreciation expectation."""
+    if rate >= 10:   return 100
+    if rate >= 7:    return 80
+    if rate >= 5:    return 65
+    if rate >= 3:    return 45
+    if rate >= 0:    return 25
     return 0
 
 
 def _score_yield(yield_pct: float) -> float:
-    """
-    Score 0-100. Higher yield = lower risk.
-    """
-    if yield_pct >= 5:
-        return 100
-    if yield_pct >= 4:
-        return 85
-    if yield_pct >= 3:
-        return 65
-    if yield_pct >= 2:
-        return 40
-    return max(0, yield_pct * 20)
+    """0-100: net rental yield."""
+    if yield_pct >= 5:   return 100
+    if yield_pct >= 4:   return 80
+    if yield_pct >= 3:   return 60
+    if yield_pct >= 2:   return 40
+    if yield_pct >= 1:   return 20
+    return 0
 
 
-def calculate_risk_score(
-    input_data: InvestmentInput, metrics: InvestmentMetrics
-) -> RiskAssessment:
-    """
-    Calculate weighted risk score (1-100) with component breakdown.
+def _score_dscr(dscr: float) -> float:
+    """0-100: Debt Service Coverage Ratio."""
+    if dscr >= 1.5:  return 100
+    if dscr >= 1.2:  return 80
+    if dscr >= 1.0:  return 60
+    if dscr >= 0.8:  return 35
+    return 10
 
-    Returns:
-        RiskAssessment with total_score, label, breakdown, explanation.
-        Also includes score (1-10) for backward compatibility.
-    """
-    ltv = ((input_data.property_purchase_price - input_data.down_payment)
-           / input_data.property_purchase_price * 100)
 
-    cash_flow_score = _score_cash_flow(metrics.annual_cash_flow)
-    irr_score = _score_irr(metrics.irr)
-    ltv_score = _score_ltv(ltv)
-    appreciation_score = _score_appreciation(
-        input_data.expected_annual_appreciation
-    )
-    yield_score = _score_yield(metrics.annual_rental_yield)
+def _score_vacancy(break_even: float) -> float:
+    """0-100: lower break-even occupancy = safer."""
+    if break_even <= 60:  return 100
+    if break_even <= 70:  return 80
+    if break_even <= 80:  return 60
+    if break_even <= 90:  return 40
+    if break_even <= 95:  return 20
+    return 5
 
-    total = (
-        cash_flow_score * WEIGHTS["cash_flow"]
-        + irr_score * WEIGHTS["irr"]
-        + ltv_score * WEIGHTS["ltv"]
-        + appreciation_score * WEIGHTS["appreciation"]
-        + yield_score * WEIGHTS["yield"]
-    )
-    total_score = min(100, max(0, round(total)))
-    total_score = int(total_score)
 
-    if total_score <= 35:
-        label: Literal["Low Risk", "Moderate Risk", "High Risk"] = "Low Risk"
-    elif total_score <= 65:
-        label = "Moderate Risk"
+# Weights must sum to 1.0
+WEIGHTS = {
+    "cash_flow": 0.25,
+    "irr":       0.20,
+    "ltv":       0.15,
+    "appreciation": 0.10,
+    "yield":     0.10,
+    "dscr":      0.12,
+    "vacancy":   0.08,
+}
+
+
+def score_risk(metrics: InvestmentMetrics, appreciation_rate: float) -> RiskAssessment:
+    breakdown_raw = {
+        "cash_flow": _score_cash_flow(metrics.annual_cash_flow),
+        "irr":       _score_irr(metrics.irr),
+        "ltv":       _score_ltv(metrics.ltv_ratio),
+        "appreciation": _score_appreciation(appreciation_rate),
+        "yield":     _score_yield(metrics.net_rental_yield),
+        "dscr":      _score_dscr(metrics.dscr),
+        "vacancy":   _score_vacancy(metrics.break_even_occupancy),
+    }
+
+    total = sum(breakdown_raw[k] * WEIGHTS[k] for k in WEIGHTS)
+
+    if total <= 35:
+        label, score_1_10 = "High Risk", max(1, round(total / 35 * 4))
+    elif total <= 65:
+        label, score_1_10 = "Moderate Risk", round(4 + (total - 35) / 30 * 4)
     else:
-        label = "High Risk"
+        label, score_1_10 = "Low Risk", round(8 + (total - 65) / 35 * 2)
 
-    # Backward compat: score 1-10 from total 1-100
-    legacy_score = min(10, max(1, (total_score // 10) + (1 if total_score > 0 else 0)))
-    if total_score == 0:
-        legacy_score = 1
+    explanation_parts = []
+    if metrics.annual_cash_flow < 0:
+        explanation_parts.append("negative annual cash flow")
+    if metrics.dscr < 1.0:
+        explanation_parts.append("rental income insufficient to cover EMI (DSCR < 1)")
+    if metrics.ltv_ratio > 80:
+        explanation_parts.append("high leverage (LTV > 80%)")
+    if metrics.irr < 7:
+        explanation_parts.append("IRR below FD benchmark")
+    if metrics.break_even_occupancy > 90:
+        explanation_parts.append("high break-even occupancy risk")
 
-    breakdown = RiskBreakdown(
-        cash_flow_score=round(cash_flow_score, 1),
-        irr_score=round(irr_score, 1),
-        ltv_score=round(ltv_score, 1),
-        appreciation_score=round(appreciation_score, 1),
-        yield_score=round(yield_score, 1),
-    )
-
-    parts = []
-    if cash_flow_score < 50:
-        parts.append("weak cash flow")
-    if irr_score < 50:
-        parts.append("IRR below FD")
-    if ltv_score < 50:
-        parts.append("high LTV")
-    if appreciation_score < 50:
-        parts.append("low appreciation assumption")
-    if yield_score < 50:
-        parts.append("low rental yield")
-
-    explanation = (
-        "Risk factors: " + "; ".join(parts)
-        if parts
-        else "Favorable metrics across cash flow, IRR, LTV, appreciation, and yield."
-    )
+    if explanation_parts:
+        explanation = f"{label}: Key concerns — {', '.join(explanation_parts)}."
+    else:
+        explanation = f"{label}: Strong fundamentals with {metrics.irr:.1f}% IRR and {metrics.dscr:.2f}x DSCR."
 
     return RiskAssessment(
-        score=legacy_score,
+        score=score_1_10,
+        total_score=round(total, 1),
         label=label,
         explanation=explanation,
-        total_score=total_score,
-        breakdown=breakdown,
+        breakdown=RiskBreakdown(
+            cash_flow_score=round(breakdown_raw["cash_flow"], 1),
+            irr_score=round(breakdown_raw["irr"], 1),
+            ltv_score=round(breakdown_raw["ltv"], 1),
+            appreciation_score=round(breakdown_raw["appreciation"], 1),
+            yield_score=round(breakdown_raw["yield"], 1),
+            dscr_score=round(breakdown_raw["dscr"], 1),
+            vacancy_score=round(breakdown_raw["vacancy"], 1),
+        ),
     )
