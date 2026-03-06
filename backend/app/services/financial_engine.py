@@ -1,278 +1,177 @@
 """
-Financial Engine - Core calculation logic for property investment analysis.
-
-All formulas implemented as per Indian real estate investment conventions.
+Financial Engine — PropInvest AI V3
+Calculates all investment metrics: EMI, IRR, NPV, Cap Rate, DSCR, Cash-on-Cash, etc.
 """
-
-from typing import List
-
-from app.models.investment import InvestmentInput, InvestmentMetrics
-
-
-def calculate_emi(principal: float, annual_rate: float, tenure_months: int) -> float:
-    """
-    Calculate EMI using standard formula:
-    EMI = P * r * (1+r)^n / ((1+r)^n - 1)
-
-    Where:
-        P = Principal (loan amount)
-        r = Monthly interest rate (annual_rate / 12 / 100)
-        n = Number of monthly installments
-
-    Args:
-        principal: Loan principal in INR
-        annual_rate: Annual interest rate as percentage (e.g., 8.5 for 8.5%)
-        tenure_months: Loan tenure in months
-
-    Returns:
-        Monthly EMI in INR
-    """
-    if principal <= 0 or tenure_months <= 0:
-        return 0.0
-
-    r = (annual_rate / 100) / 12  # Monthly rate as decimal
-    factor = (1 + r) ** tenure_months
-    denom = factor - 1
-    if denom <= 0:  # Prevent divide-by-zero (e.g. r ≈ 0)
-        return round(principal / tenure_months, 2)
-    emi = principal * r * factor / denom
-    return round(emi, 2)
+import math
+from app.models.schemas import (
+    InvestmentInput, InvestmentMetrics, CashFlowYear
+)
+from app.utils.irr import calculate_irr, calculate_npv
 
 
-def calculate_rental_yield(annual_rent: float, property_price: float) -> float:
-    """
-    Annual Rental Yield = (Annual Rent / Property Price) * 100
-
-    Args:
-        annual_rent: Total annual rent in INR
-        property_price: Property purchase price in INR
-
-    Returns:
-        Rental yield as percentage
-    """
-    if property_price <= 0:
-        return 0.0
-    return round((annual_rent / property_price) * 100, 2)
+def calculate_emi(principal: float, annual_rate: float, tenure_years: int) -> float:
+    """Standard reducing-balance EMI formula."""
+    if annual_rate == 0:
+        return principal / (tenure_years * 12)
+    r = annual_rate / 100 / 12
+    n = tenure_years * 12
+    return principal * r * (1 + r) ** n / ((1 + r) ** n - 1)
 
 
-def calculate_annual_cash_flow(
-    annual_rent: float, annual_emi: float, annual_maintenance: float
-) -> float:
-    """
-    Annual Net Cash Flow = Annual Rent - (EMI * 12) - Annual Maintenance
+def build_cash_flow_timeline(inp: InvestmentInput, emi: float) -> list[CashFlowYear]:
+    """Year-by-year cash flow timeline."""
+    timeline = []
+    cumulative = 0.0
+    loan_balance = inp.property_purchase_price - inp.down_payment
 
-    Positive = property generates more than it costs.
-    Negative = investor must subsidize from pocket.
+    for year in range(1, inp.holding_period_years + 1):
+        rent = inp.expected_monthly_rent * 12 * (1 - inp.vacancy_rate / 100)
+        emi_annual = emi * 12
+        maintenance = inp.annual_maintenance_cost
+        net_cf = rent - emi_annual - maintenance
+        cumulative += net_cf
+        pv = inp.property_purchase_price * (1 + inp.expected_annual_appreciation / 100) ** year
+        # Simple equity approximation
+        remaining_tenure = max(0, inp.loan_tenure_years - year)
+        if remaining_tenure > 0 and inp.loan_interest_rate > 0:
+            r = inp.loan_interest_rate / 100 / 12
+            n_remaining = remaining_tenure * 12
+            remaining_balance = emi * (1 - (1 + r) ** -n_remaining) / r
+        else:
+            remaining_balance = 0
+        equity = pv - remaining_balance
 
-    Args:
-        annual_rent: Total annual rent in INR
-        annual_emi: Total annual EMI (monthly_emi * 12) in INR
-        annual_maintenance: Annual maintenance cost in INR
-
-    Returns:
-        Net annual cash flow in INR
-    """
-    return round(annual_rent - annual_emi - annual_maintenance, 2)
-
-
-def calculate_future_property_value(
-    purchase_price: float, appreciation_rate: float, years: int
-) -> float:
-    """
-    Future Property Value = Price * (1 + appreciation_rate)^holding_period
-
-    Args:
-        purchase_price: Current property price in INR
-        appreciation_rate: Annual appreciation as decimal (e.g., 0.06 for 6%)
-        years: Holding period in years
-
-    Returns:
-        Projected future value in INR
-    """
-    return round(purchase_price * ((1 + appreciation_rate / 100) ** years), 2)
-
-
-def calculate_total_interest_paid(
-    principal: float, emi: float, annual_rate: float, months_paid: int
-) -> float:
-    """
-    Calculate total interest paid over a period using amortization.
-
-    For each month: interest = remaining_principal * monthly_rate
-    We simulate the loan and sum interest paid.
-
-    Args:
-        principal: Loan principal in INR
-        emi: Monthly EMI in INR
-        annual_rate: Annual interest rate as percentage
-        months_paid: Number of months over which we calculate (holding period * 12)
-
-    Returns:
-        Total interest paid in INR
-    """
-    if principal <= 0 or emi <= 0 or months_paid <= 0:
-        return 0.0
-
-    monthly_rate = (annual_rate / 100) / 12
-    remaining = principal
-    total_interest = 0.0
-
-    for _ in range(months_paid):
-        interest = remaining * monthly_rate
-        principal_payment = emi - interest
-        total_interest += interest
-        remaining -= principal_payment
-        if remaining <= 0:
-            break
-
-    return round(total_interest, 2)
+        timeline.append(CashFlowYear(
+            year=year,
+            rental_income=round(rent, 2),
+            emi_paid=round(emi_annual, 2),
+            maintenance=round(maintenance, 2),
+            net_cash_flow=round(net_cf, 2),
+            cumulative_cash_flow=round(cumulative, 2),
+            property_value=round(pv, 2),
+            equity=round(equity, 2),
+        ))
+    return timeline
 
 
-def calculate_total_equity_built(
-    principal: float, emi: float, annual_rate: float, months_paid: int
-) -> float:
-    """
-    Total equity built = Total principal repaid over the period.
+def run_engine(inp: InvestmentInput) -> tuple[InvestmentMetrics, list[CashFlowYear]]:
+    """Main calculation entry point. Returns (metrics, timeline)."""
 
-    Args:
-        principal: Initial loan amount
-        emi: Monthly EMI
-        annual_rate: Annual interest rate
-        months_paid: Months of payments
+    # ── Acquisition costs ─────────────────────────────────────────────────────
+    stamp_duty = inp.property_purchase_price * inp.stamp_duty_percent / 100
+    reg_cost = inp.property_purchase_price * inp.registration_cost_percent / 100
+    total_acquisition_cost = inp.property_purchase_price + stamp_duty + reg_cost
+    effective_down = inp.down_payment + stamp_duty + reg_cost
+    loan_amount = inp.property_purchase_price - inp.down_payment
 
-    Returns:
-        Total principal repaid (equity built) in INR
-    """
-    if principal <= 0 or emi <= 0 or months_paid <= 0:
-        return 0.0
+    # ── EMI ───────────────────────────────────────────────────────────────────
+    emi = calculate_emi(loan_amount, inp.loan_interest_rate, inp.loan_tenure_years)
+    annual_emi = emi * 12
 
-    monthly_rate = (annual_rate / 100) / 12
-    remaining = principal
-    total_principal_paid = 0.0
+    # ── Total interest paid ───────────────────────────────────────────────────
+    total_paid = emi * inp.loan_tenure_years * 12
+    total_interest = total_paid - loan_amount
 
-    for _ in range(months_paid):
-        interest = remaining * monthly_rate
-        principal_payment = min(emi - interest, remaining)
-        total_principal_paid += principal_payment
-        remaining -= principal_payment
-        if remaining <= 0:
-            break
+    # ── Rental income ─────────────────────────────────────────────────────────
+    gross_annual_rent = inp.expected_monthly_rent * 12
+    effective_annual_rent = gross_annual_rent * (1 - inp.vacancy_rate / 100)
+    annual_cash_flow = effective_annual_rent - annual_emi - inp.annual_maintenance_cost
+    monthly_cash_flow = annual_cash_flow / 12
 
-    return round(total_principal_paid, 2)
+    # ── Yields ────────────────────────────────────────────────────────────────
+    gross_rental_yield = (gross_annual_rent / inp.property_purchase_price) * 100
+    net_rental_yield = (
+        (effective_annual_rent - inp.annual_maintenance_cost) / inp.property_purchase_price
+    ) * 100
 
+    # ── Cap Rate (NOI / value) ────────────────────────────────────────────────
+    noi = effective_annual_rent - inp.annual_maintenance_cost
+    cap_rate = (noi / inp.property_purchase_price) * 100
 
-def calculate_capital_gains_tax(capital_gains: float, tax_rate: float = 20.0) -> float:
-    """
-    Capital Gains Tax - Simplified for MVP: flat 20% with indexation.
-    In India, LTCG on property is 20% with indexation benefit.
-    For MVP we use flat 20% as specified.
+    # ── Cash-on-Cash ─────────────────────────────────────────────────────────
+    # Annual cash flow / total equity invested (down + acquisition costs)
+    cash_on_cash = (annual_cash_flow / effective_down) * 100 if effective_down > 0 else 0
 
-    Args:
-        capital_gains: Capital gains amount in INR
-        tax_rate: Tax rate as percentage (default 20%)
+    # ── DSCR ─────────────────────────────────────────────────────────────────
+    dscr = noi / annual_emi if annual_emi > 0 else float("inf")
 
-    Returns:
-        Tax amount in INR
-    """
-    if capital_gains <= 0:
-        return 0.0
-    return round(capital_gains * (tax_rate / 100), 2)
+    # ── Break-even occupancy ──────────────────────────────────────────────────
+    # What occupancy % is needed to cover EMI + maintenance?
+    annual_costs = annual_emi + inp.annual_maintenance_cost
+    break_even_occupancy = (annual_costs / gross_annual_rent * 100) if gross_annual_rent > 0 else 100
 
+    # ── LTV ───────────────────────────────────────────────────────────────────
+    ltv_ratio = (loan_amount / inp.property_purchase_price) * 100
 
-def run_financial_engine(input_data: InvestmentInput) -> InvestmentMetrics:
-    """
-    Execute full financial analysis and return all metrics.
+    # ── Future value & capital gains ─────────────────────────────────────────
+    future_value = inp.property_purchase_price * (
+        1 + inp.expected_annual_appreciation / 100
+    ) ** inp.holding_period_years
+    capital_gains = future_value - inp.property_purchase_price
+    # Flat 20% LTCG for metrics (detailed indexation in tax engine)
+    cg_tax = max(0, capital_gains * 0.20) if inp.holding_period_years >= 2 else capital_gains * inp.investor_tax_slab / 100
 
-    Args:
-        input_data: InvestmentInput with all parameters
+    # ── Equity built ─────────────────────────────────────────────────────────
+    periods_paid = min(inp.holding_period_years * 12, inp.loan_tenure_years * 12)
+    if inp.loan_interest_rate > 0:
+        r = inp.loan_interest_rate / 100 / 12
+        n = inp.loan_tenure_years * 12
+        remaining = emi * (1 - (1 + r) ** -(n - periods_paid)) / r if n > periods_paid else 0
+    else:
+        remaining = max(0, loan_amount - (loan_amount / (inp.loan_tenure_years * 12)) * periods_paid)
+    equity_built = loan_amount - remaining
 
-    Returns:
-        InvestmentMetrics with all calculated values
-    """
-    # Extract inputs
-    purchase_price = input_data.property_purchase_price
-    down_payment = input_data.down_payment
-    loan_amount = purchase_price - down_payment
-    annual_rate = input_data.loan_interest_rate
-    tenure_years = input_data.loan_tenure_years
-    tenure_months = tenure_years * 12
-    monthly_rent = input_data.expected_monthly_rent
-    annual_rent = monthly_rent * 12
-    maintenance = input_data.annual_maintenance_cost
-    appreciation = input_data.expected_annual_appreciation
-    holding_years = input_data.holding_period_years
-    holding_months = holding_years * 12
+    # ── IRR cash flows ────────────────────────────────────────────────────────
+    # t=0: outflow (effective down payment)
+    # t=1..n: annual net cash flows
+    # t=n: add net sale proceeds
+    net_sale_proceeds = future_value - remaining - cg_tax
+    irr_flows = [-effective_down]
+    for yr in range(1, inp.holding_period_years + 1):
+        annual_cf = effective_annual_rent - annual_emi - inp.annual_maintenance_cost
+        if yr == inp.holding_period_years:
+            annual_cf += net_sale_proceeds
+        irr_flows.append(annual_cf)
 
-    # 1) EMI
-    emi = calculate_emi(loan_amount, annual_rate, tenure_months)
+    irr = calculate_irr(irr_flows) or 0.0
+    npv = calculate_npv(irr_flows, discount_rate=0.10)
 
-    # 2) Annual Rental Yield
-    rental_yield = calculate_rental_yield(annual_rent, purchase_price)
+    # ── ROI ───────────────────────────────────────────────────────────────────
+    total_invested = effective_down
+    total_return = net_sale_proceeds + sum(
+        effective_annual_rent - annual_emi - inp.annual_maintenance_cost
+        for _ in range(inp.holding_period_years)
+    ) - total_invested
+    roi = (total_return / total_invested * 100) if total_invested > 0 else 0
 
-    # 3) Annual & Monthly Cash Flow
-    annual_cash_flow = calculate_annual_cash_flow(annual_rent, emi * 12, maintenance)
-    monthly_cash_flow = round(annual_cash_flow / 12, 2)
+    # ── Timeline ──────────────────────────────────────────────────────────────
+    timeline = build_cash_flow_timeline(inp, emi)
 
-    # 4) Future Property Value
-    future_value = calculate_future_property_value(purchase_price, appreciation, holding_years)
-
-    # 5) Total Interest Paid (over holding period, not full loan tenure)
-    months_paid = min(holding_months, tenure_months)
-    total_interest = calculate_total_interest_paid(loan_amount, emi, annual_rate, months_paid)
-
-    # 6) Total Equity Built
-    total_equity = calculate_total_equity_built(
-        loan_amount, emi, annual_rate, months_paid
-    )
-
-    # 5) Capital Gains
-    capital_gains = round(future_value - purchase_price, 2)
-
-    # 6) Capital Gains Tax (20% flat for MVP)
-    cap_gains_tax = calculate_capital_gains_tax(capital_gains, 20.0)
-
-    # Build cash flows for IRR
-    annual_net_cf = annual_rent - (emi * 12) - maintenance
-    cash_flows = [-down_payment]
-
-    for year in range(holding_years - 1):
-        cash_flows.append(annual_net_cf)
-
-    # Last year: annual CF + sale proceeds
-    remaining_loan = max(0, loan_amount - total_equity)
-    sale_proceeds = future_value - cap_gains_tax - remaining_loan
-    cash_flows.append(annual_net_cf + sale_proceeds)
-
-    # 7) IRR
-    from app.utils.irr import calculate_irr
-
-    irr_decimal = calculate_irr(cash_flows)
-    irr_percent = round(irr_decimal * 100, 2)
-
-    # 8) ROI & Total Invested
-    # Total invested = down payment + net cash outflow over holding period
-    # When annual_cash_flow is negative, we add money each year
-    total_emi_paid = emi * min(holding_months, tenure_months)
-    total_rent_received = annual_rent * holding_years
-    total_maintenance_paid = maintenance * holding_years
-    net_annual_outflow = (emi * 12) + maintenance - annual_rent  # Positive = we pay from pocket
-    total_invested = down_payment + max(0, net_annual_outflow * holding_years)
-
-    # Net profit = sale proceeds + rent received - EMI paid - maintenance - down payment
-    net_profit = sale_proceeds + total_rent_received - total_emi_paid - total_maintenance_paid - down_payment
-    roi = round((net_profit / total_invested) * 100, 2) if total_invested > 0 else 0.0
-
-    return InvestmentMetrics(
-        emi=emi,
-        annual_rental_yield=rental_yield,
-        annual_cash_flow=annual_cash_flow,
-        monthly_cash_flow=monthly_cash_flow,
-        total_interest_paid=total_interest,
-        total_equity_built=total_equity,
-        future_property_value=future_value,
-        capital_gains=capital_gains,
-        capital_gains_tax=cap_gains_tax,
-        irr=irr_percent,
-        roi=roi,
+    metrics = InvestmentMetrics(
+        emi=round(emi, 2),
+        loan_amount=round(loan_amount, 2),
+        total_acquisition_cost=round(total_acquisition_cost, 2),
+        effective_down_payment=round(effective_down, 2),
+        annual_rental_income=round(gross_annual_rent, 2),
+        effective_annual_rent=round(effective_annual_rent, 2),
+        annual_cash_flow=round(annual_cash_flow, 2),
+        monthly_cash_flow=round(monthly_cash_flow, 2),
+        total_interest_paid=round(total_interest, 2),
+        gross_rental_yield=round(gross_rental_yield, 2),
+        net_rental_yield=round(net_rental_yield, 2),
+        cash_on_cash_return=round(cash_on_cash, 2),
+        cap_rate=round(cap_rate, 2),
+        total_equity_built=round(equity_built, 2),
+        future_property_value=round(future_value, 2),
+        capital_gains=round(capital_gains, 2),
+        capital_gains_tax=round(cg_tax, 2),
+        irr=round(irr, 2),
+        npv=round(npv, 2),
+        roi=round(roi, 2),
         total_invested=round(total_invested, 2),
+        dscr=round(dscr, 3),
+        break_even_occupancy=round(min(break_even_occupancy, 100), 2),
+        ltv_ratio=round(ltv_ratio, 2),
     )
+
+    return metrics, timeline
