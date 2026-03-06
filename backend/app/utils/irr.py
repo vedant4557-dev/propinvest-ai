@@ -1,64 +1,62 @@
 """
-IRR (Internal Rate of Return) calculation using Newton-Raphson method.
-IRR is the discount rate that makes NPV = 0.
-
-Includes convergence fallback and edge-case handling.
+IRR calculation using Newton-Raphson method with bisection fallback.
 """
-
-from typing import List
-
-# Absolute tolerance for NPV convergence
-TOLERANCE = 1e-7
-# Fallback guesses if primary fails (decimal rates)
-FALLBACK_GUESSES = [0.05, 0.10, 0.15, 0.20, -0.05, 0.01]
-MAX_ITERATIONS = 100
+from typing import Optional
 
 
-def _npv(rate: float, cash_flows: List[float]) -> float:
-    """Compute NPV at given discount rate."""
-    return sum(cf / ((1 + rate) ** t) for t, cf in enumerate(cash_flows))
-
-
-def _npv_derivative(rate: float, cash_flows: List[float]) -> float:
-    """Compute derivative of NPV w.r.t. rate."""
-    result = 0.0
-    for t, cf in enumerate(cash_flows):
-        if t > 0:
-            result -= t * cf / ((1 + rate) ** (t + 1))
-    return result
-
-
-def calculate_irr(cash_flows: List[float], guess: float = 0.1) -> float:
+def calculate_irr(cash_flows: list[float], guess: float = 0.1, max_iter: int = 1000) -> Optional[float]:
     """
-    Calculate IRR using Newton-Raphson iteration.
-
-    Args:
-        cash_flows: List of cash flows. cash_flows[0] is initial investment (negative).
-        guess: Initial guess for IRR (decimal, e.g. 0.1 = 10%).
-
-    Returns:
-        IRR as decimal (e.g., 0.085 for 8.5%). Returns 0 if all attempts fail.
+    Calculate Internal Rate of Return via Newton-Raphson with bisection fallback.
+    cash_flows: list where index 0 is t=0 (negative = outflow), rest are inflows.
+    Returns IRR as a decimal (e.g., 0.10 = 10%) or None if no convergence.
     """
     if not cash_flows or len(cash_flows) < 2:
-        return 0.0
+        return None
 
-    # Avoid divide-by-zero: check for constant cash flows
-    if len(set(cash_flows)) == 1:
-        return 0.0
+    def npv_func(rate: float) -> float:
+        return sum(cf / (1 + rate) ** t for t, cf in enumerate(cash_flows))
 
-    for initial_guess in [guess] + FALLBACK_GUESSES:
-        rate = initial_guess
-        for _ in range(MAX_ITERATIONS):
-            npv = _npv(rate, cash_flows)
-            if abs(npv) < TOLERANCE:
-                return rate
+    def npv_deriv(rate: float) -> float:
+        return sum(-t * cf / (1 + rate) ** (t + 1) for t, cf in enumerate(cash_flows))
 
-            dnpv = _npv_derivative(rate, cash_flows)
-            if abs(dnpv) < 1e-15:
-                break
+    # Newton-Raphson
+    rate = guess
+    for _ in range(max_iter):
+        f = npv_func(rate)
+        if abs(f) < 1e-7:
+            return round(rate * 100, 4)
+        df = npv_deriv(rate)
+        if df == 0:
+            break
+        rate_new = rate - f / df
+        if abs(rate_new - rate) < 1e-9:
+            return round(rate_new * 100, 4)
+        rate = rate_new
+        if rate <= -1:
+            rate = -0.9999
 
-            rate = rate - npv / dnpv
-            rate = max(-0.99, min(0.99, rate))
+    # Bisection fallback
+    lo, hi = -0.999, 10.0
+    try:
+        if npv_func(lo) * npv_func(hi) > 0:
+            return None
+        for _ in range(200):
+            mid = (lo + hi) / 2
+            f_mid = npv_func(mid)
+            if abs(f_mid) < 1e-7:
+                return round(mid * 100, 4)
+            if npv_func(lo) * f_mid < 0:
+                hi = mid
+            else:
+                lo = mid
+        return round((lo + hi) / 2 * 100, 4)
+    except Exception:
+        return None
 
-    # Final fallback: return 0 (no convergence)
-    return 0.0
+
+def calculate_npv(cash_flows: list[float], discount_rate: float = 0.10) -> float:
+    """
+    Calculate Net Present Value.
+    discount_rate: as decimal (0.10 = 10%)
+    """
+    return sum(cf / (1 + discount_rate) ** t for t, cf in enumerate(cash_flows))
