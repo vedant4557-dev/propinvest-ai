@@ -16,7 +16,7 @@ export function SavedDealsPanel({ deals, onLoad, onRemove }: SavedDealsPanelProp
         <div className="text-center">
           <div className="text-5xl mb-4">📁</div>
           <h3 className="font-semibold text-slate-700 dark:text-slate-300">No saved deals yet</h3>
-          <p className="mt-1 text-sm text-slate-500">Analyze a property and click "Save Deal" to store it here</p>
+          <p className="mt-1 text-sm text-slate-500">Analyze a property and click &quot;Save Deal&quot; to store it here</p>
         </div>
       </div>
     );
