@@ -56,6 +56,14 @@ export interface AIAnalysis {
   summary: string;
 }
 
+// BUG FIX: histogram bins were using `as number` casts in IRRDistributionChart
+// because types were previously implied as `unknown`. Now explicitly typed.
+export interface IRRHistogramBin {
+  bin_start: number;
+  bin_end: number;
+  count: number;
+}
+
 export interface MonteCarloResult {
   expected_irr: number;
   worst_case_irr: number;
@@ -64,7 +72,7 @@ export interface MonteCarloResult {
   probability_beating_fd: number;
   probability_negative_cashflow: number;
   irr_distribution: number[];
-  irr_histogram: { bin_start: number; bin_end: number; count: number }[];
+  irr_histogram: IRRHistogramBin[];
   scenario_count: number;
 }
 
@@ -131,6 +139,12 @@ export interface PortfolioMetrics {
   portfolio_cash_flow: number;
   portfolio_post_tax_irr: number;
   rating?: string;
+}
+
+// BUG FIX: analyzePortfolio in page.tsx was passing investments[] directly.
+// This wrapper type makes the correct shape explicit.
+export interface AnalyzePortfolioRequest {
+  investments: InvestmentInput[];
 }
 
 export interface AnalyzePortfolioResponse {
