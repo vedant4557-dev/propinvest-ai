@@ -4,7 +4,7 @@ import { useState, FormEvent } from "react";
 import type { InvestmentInput } from "@/types/investment";
 import { InputForm } from "./InputForm";
 
-const DEFAULT_INPUT: InvestmentInput = {
+const DEFAULT_INPUT = {
   property_purchase_price: 10000000,
   down_payment: 2000000,
   loan_interest_rate: 8.5,
