@@ -1,6 +1,14 @@
 "use client";
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import type { MonteCarloResult } from "@/types/investment";
 
 interface IRRDistributionChartProps {
@@ -8,9 +16,13 @@ interface IRRDistributionChartProps {
 }
 
 export function IRRDistributionChart({ data }: IRRDistributionChartProps) {
+  // BUG FIX: guard against empty histogram (backend may omit it)
+  if (!data.irr_histogram || data.irr_histogram.length === 0) return null;
+
   const chartData = data.irr_histogram.map((h) => ({
-    range: `${(h.bin_start as number).toFixed(0)}%–${(h.bin_end as number).toFixed(0)}%`,
-    count: h.count as number,
+    // BUG FIX: removed incorrect `as number` casts — types are already typed correctly
+    range: `${h.bin_start.toFixed(0)}%–${h.bin_end.toFixed(0)}%`,
+    count: h.count,
   }));
 
   return (
@@ -20,8 +32,15 @@ export function IRRDistributionChart({ data }: IRRDistributionChartProps) {
       </h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+          <BarChart
+            data={chartData}
+            margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#334155"
+              opacity={0.3}
+            />
             <XAxis dataKey="range" tick={{ fontSize: 10 }} stroke="#94a3b8" />
             <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
             <Tooltip
