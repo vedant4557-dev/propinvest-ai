@@ -1,8 +1,8 @@
 import type {
-  AnalyzeInvestmentResponse,
-  AnalyzePortfolioResponse,
   InvestmentInput,
+  AnalyzeInvestmentResponse,
   AnalyzePortfolioRequest,
+  AnalyzePortfolioResponse,
 } from "@/types/investment";
 
 const API_URL =
@@ -12,9 +12,7 @@ const API_URL =
 async function apiFetch<T>(endpoint: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_URL}${endpoint}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
@@ -23,28 +21,19 @@ async function apiFetch<T>(endpoint: string, body: unknown): Promise<T> {
     try {
       const err = await res.json();
       if (err?.detail) {
-        message =
-          typeof err.detail === "string"
-            ? err.detail
-            : JSON.stringify(err.detail);
+        message = typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail);
       }
-    } catch {
-      // response body wasn't JSON, keep the status-based message
-    }
+    } catch { /* keep status message */ }
     throw new Error(message);
   }
 
   return res.json() as Promise<T>;
 }
 
-export async function analyzeInvestment(
-  data: InvestmentInput
-): Promise<AnalyzeInvestmentResponse> {
+export function analyzeInvestment(data: InvestmentInput): Promise<AnalyzeInvestmentResponse> {
   return apiFetch<AnalyzeInvestmentResponse>("/analyze-investment", data);
 }
 
-export async function analyzePortfolio(
-  data: AnalyzePortfolioRequest
-): Promise<AnalyzePortfolioResponse> {
+export function analyzePortfolio(data: AnalyzePortfolioRequest): Promise<AnalyzePortfolioResponse> {
   return apiFetch<AnalyzePortfolioResponse>("/analyze-portfolio", data);
 }
