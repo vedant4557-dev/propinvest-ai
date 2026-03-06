@@ -40,7 +40,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [inputs, setInputs] = useState<InvestmentInput | null>(null);
 
-  // ✅ FIXED REF TYPING
   const reportRef = useRef<HTMLDivElement | null>(null);
 
   const handleAnalyze = async (input: InvestmentInput) => {
@@ -64,7 +63,8 @@ export default function Home() {
     setError(null);
     setResult(null);
     try {
-      const data = await analyzePortfolio(investments);
+      // BUG FIX: backend expects { investments: [...] }, not a bare array
+      const data = await analyzePortfolio({ investments });
       setPortfolioResult(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Portfolio analysis failed");
@@ -193,17 +193,90 @@ function SingleResultView({
 }) {
   return (
     <div ref={reportRef} className="space-y-6">
+      {/* KPIs */}
       <KPICards metrics={result.metrics} taxAnalysis={result.tax_analysis} />
+
+      {/* Risk */}
+      <RiskBadge risk={result.risk} />
+
+      {/* Deal Analysis (V3 - optional) */}
+      {result.deal_analysis && (
+        <div className="space-y-4">
+          <DealScoreBadge deal={result.deal_analysis} />
+          <FairValueChart
+            deal={result.deal_analysis}
+            askingPrice={inputs.property_purchase_price}
+          />
+          <NegotiationCard deal={result.deal_analysis} />
+          <RedFlagsList flags={result.deal_analysis.red_flags} />
+        </div>
+      )}
+
+      {/* Charts */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Annual Cash Flow Breakdown
+          </h3>
+          <CashFlowChart
+            annualCashFlow={result.metrics.annual_cash_flow}
+            emi={result.metrics.emi}
+            annualRent={inputs.expected_monthly_rent * 12}
+            annualMaintenance={inputs.annual_maintenance_cost}
+          />
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Property Growth
+          </h3>
+          <PropertyGrowthChart
+            purchasePrice={inputs.property_purchase_price}
+            futureValue={result.metrics.future_property_value}
+            holdingPeriodYears={inputs.holding_period_years}
+            appreciationRate={inputs.expected_annual_appreciation}
+          />
+        </div>
+      </div>
+
+      {/* Monte Carlo */}
+      {result.monte_carlo && (
+        <div className="space-y-4">
+          <MonteCarloCard data={result.monte_carlo} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <IRRDistributionChart data={result.monte_carlo} />
+            <ScenarioOutcomeChart data={result.monte_carlo} />
+          </div>
+          <div className="flex justify-around rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+            <ProbabilityGauge
+              value={result.monte_carlo.probability_beating_fd}
+              label="Beats 7% FD"
+              subtitle="probability"
+            />
+            <ProbabilityGauge
+              value={result.monte_carlo.probability_negative_cashflow}
+              label="Negative Cash Flow"
+              subtitle="probability"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Sensitivity */}
+      {result.sensitivity && <SensitivityTable data={result.sensitivity} />}
+
+      {/* Stress Test */}
+      {result.stress_test && <StressTestCard data={result.stress_test} />}
+
+      {/* Tax Analysis */}
+      {result.tax_analysis && <TaxAnalysisCard data={result.tax_analysis} />}
+
+      {/* AI Summary */}
       <AISummary analysis={result.ai_analysis} />
     </div>
   );
 }
 
-function PortfolioResultView({
-  data,
-}: {
-  data: AnalyzePortfolioResponse;
-}) {
+function PortfolioResultView({ data }: { data: AnalyzePortfolioResponse }) {
   return (
     <div className="space-y-6">
       <PortfolioDashboard data={data} />
