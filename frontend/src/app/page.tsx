@@ -3,50 +3,64 @@
 import { useState, useRef } from "react";
 import { InputForm } from "@/components/InputForm";
 import { PortfolioForm } from "@/components/PortfolioForm";
+import { SavedDealsPanel } from "@/components/SavedDealsPanel";
 import { KPICards } from "@/components/KPICards";
 import { RiskBadge } from "@/components/RiskBadge";
 import { AISummary } from "@/components/AISummary";
 import { CashFlowChart } from "@/components/CashFlowChart";
 import { PropertyGrowthChart } from "@/components/PropertyGrowthChart";
 import { MonteCarloCard } from "@/components/MonteCarloCard";
+import { IRRDistributionChart } from "@/components/IRRDistributionChart";
+import { ScenarioOutcomeChart } from "@/components/ScenarioOutcomeChart";
 import { ProbabilityGauge } from "@/components/ProbabilityGauge";
 import { SensitivityTable } from "@/components/SensitivityTable";
 import { TaxAnalysisCard } from "@/components/TaxAnalysisCard";
-import { IRRDistributionChart } from "@/components/IRRDistributionChart";
-import { ScenarioOutcomeChart } from "@/components/ScenarioOutcomeChart";
 import { DealScoreBadge } from "@/components/DealScoreBadge";
 import { NegotiationCard } from "@/components/NegotiationCard";
 import { RedFlagsList } from "@/components/RedFlagsList";
 import { FairValueChart } from "@/components/FairValueChart";
 import { StressTestCard } from "@/components/StressTestCard";
+import { CashFlowTimeline } from "@/components/CashFlowTimeline";
 import { PortfolioDashboard } from "@/components/PortfolioDashboard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ExportPDF } from "@/components/ExportPDF";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
+import { useDeals } from "@/hooks/useDeals";
 import type {
   InvestmentInput,
   AnalyzeInvestmentResponse,
   AnalyzePortfolioResponse,
 } from "@/types/investment";
 
-type Mode = "single" | "portfolio";
+type Mode = "single" | "portfolio" | "saved";
+type Tab = "overview" | "simulation" | "tax" | "deal" | "ai";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "overview",   label: "Overview" },
+  { id: "simulation", label: "Simulation" },
+  { id: "deal",       label: "Deal Analysis" },
+  { id: "tax",        label: "Tax & Returns" },
+  { id: "ai",         label: "AI Insights" },
+];
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>("single");
-  const [result, setResult] = useState<AnalyzeInvestmentResponse | null>(null);
-  const [portfolioResult, setPortfolioResult] =
-    useState<AnalyzePortfolioResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [inputs, setInputs] = useState<InvestmentInput | null>(null);
-
-  const reportRef = useRef<HTMLDivElement | null>(null);
+  const [mode, setMode]                   = useState<Mode>("single");
+  const [activeTab, setActiveTab]         = useState<Tab>("overview");
+  const [result, setResult]               = useState<AnalyzeInvestmentResponse | null>(null);
+  const [portfolioResult, setPortfolioResult] = useState<AnalyzePortfolioResponse | null>(null);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState<string | null>(null);
+  const [inputs, setInputs]               = useState<InvestmentInput | null>(null);
+  const [saveSuccess, setSaveSuccess]     = useState(false);
+  const reportRef                         = useRef<HTMLDivElement | null>(null);
+  const { deals, save, remove }           = useDeals();
 
   const handleAnalyze = async (input: InvestmentInput) => {
     setLoading(true);
     setError(null);
     setPortfolioResult(null);
     setInputs(input);
+    setActiveTab("overview");
     try {
       const data = await analyzeInvestment(input);
       setResult(data);
@@ -63,7 +77,6 @@ export default function Home() {
     setError(null);
     setResult(null);
     try {
-      // BUG FIX: backend expects { investments: [...] }, not a bare array
       const data = await analyzePortfolio({ investments });
       setPortfolioResult(data);
     } catch (e) {
@@ -74,161 +87,196 @@ export default function Home() {
     }
   };
 
+  const handleSave = () => {
+    if (result && inputs) {
+      save(inputs, result);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    }
+  };
+
+  const handleLoadDeal = (input: InvestmentInput, res: AnalyzeInvestmentResponse) => {
+    setInputs(input);
+    setResult(res);
+    setMode("single");
+    setActiveTab("overview");
+  };
+
   const switchMode = (m: Mode) => {
     setMode(m);
     setError(null);
-    if (m === "single") {
-      setPortfolioResult(null);
-    } else {
-      setResult(null);
-      setInputs(null);
-    }
+    if (m === "single")    { setPortfolioResult(null); }
+    else if (m === "portfolio") { setResult(null); setInputs(null); }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <header className="border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
+      {/* Header */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur px-6 py-3 dark:border-slate-800 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            PropInvest <span className="text-primary-500">AI</span>
-          </h1>
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white text-sm font-bold">P</div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              PropInvest <span className="text-primary-500">AI</span>
+              <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3</span>
+            </h1>
+          </div>
+
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-slate-200 dark:border-slate-700">
-              <button
-                onClick={() => switchMode("single")}
-                className={`rounded-l-lg px-3 py-2 text-sm font-medium ${
-                  mode === "single"
-                    ? "bg-primary-600 text-white dark:bg-primary-500"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                }`}
-              >
-                Single
-              </button>
-              <button
-                onClick={() => switchMode("portfolio")}
-                className={`rounded-r-lg px-3 py-2 text-sm font-medium ${
-                  mode === "portfolio"
-                    ? "bg-primary-600 text-white dark:bg-primary-500"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                }`}
-              >
-                Portfolio
-              </button>
+            {/* Mode switcher */}
+            <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {(["single", "portfolio", "saved"] as Mode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => switchMode(m)}
+                  className={`px-3 py-1.5 text-xs font-medium capitalize transition ${
+                    mode === m
+                      ? "bg-primary-600 text-white dark:bg-primary-500"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {m === "saved" ? `Saved (${deals.length})` : m}
+                </button>
+              ))}
             </div>
 
             {result && mode === "single" && (
-              <ExportPDF result={result} reportRef={reportRef} />
+              <>
+                <button
+                  onClick={handleSave}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                    saveSuccess
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {saveSuccess ? "✓ Saved" : "Save Deal"}
+                </button>
+                <ExportPDF result={result} reportRef={reportRef} />
+              </>
             )}
-
             <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="grid gap-8 lg:grid-cols-5">
-          <div className="lg:col-span-2">
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <h2 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {mode === "single"
-                  ? "Investment Parameters"
-                  : "Portfolio Properties"}
-              </h2>
+      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+        {mode === "saved" ? (
+          <SavedDealsPanel deals={deals} onLoad={handleLoadDeal} onRemove={remove} />
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-5">
+            {/* Input sidebar */}
+            <div className="lg:col-span-2">
+              <div className="sticky top-20 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+                  <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                    {mode === "single" ? "Investment Parameters" : "Portfolio Properties"}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">India market defaults applied</p>
+                </div>
+                <div className="p-5">
+                  {mode === "single" ? (
+                    <InputForm onAnalyze={handleAnalyze} isLoading={loading} />
+                  ) : (
+                    <PortfolioForm onAnalyze={handlePortfolioAnalyze} isLoading={loading} />
+                  )}
+                </div>
+              </div>
+            </div>
 
-              {mode === "single" ? (
-                <InputForm onAnalyze={handleAnalyze} isLoading={loading} />
-              ) : (
-                <PortfolioForm
-                  onAnalyze={handlePortfolioAnalyze}
-                  isLoading={loading}
+            {/* Results */}
+            <div className="lg:col-span-3">
+              {error && (
+                <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-200">
+                  {error}
+                </div>
+              )}
+
+              {loading && <LoadingState />}
+
+              {!loading && mode === "single" && result && inputs && (
+                <SingleResultView
+                  result={result}
+                  inputs={inputs}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  reportRef={reportRef}
                 />
+              )}
+
+              {!loading && mode === "portfolio" && portfolioResult && (
+                <PortfolioResultView data={portfolioResult} />
+              )}
+
+              {!loading && !result && !portfolioResult && !error && (
+                <EmptyState mode={mode} />
               )}
             </div>
           </div>
-
-          <div className="lg:col-span-3">
-            {error && (
-              <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-rose-800 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-200">
-                {error}
-              </div>
-            )}
-
-            {loading && (
-              <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-24 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-center">
-                  <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600 dark:border-primary-800 dark:border-t-primary-400" />
-                  <p className="mt-4 text-slate-600 dark:text-slate-400">
-                    Analyzing…
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {!loading && mode === "single" && result && inputs && (
-              <SingleResultView
-                result={result}
-                inputs={inputs}
-                reportRef={reportRef}
-              />
-            )}
-
-            {!loading && mode === "portfolio" && portfolioResult && (
-              <PortfolioResultView data={portfolioResult} />
-            )}
-          </div>
-        </div>
+        )}
       </main>
     </div>
   );
 }
 
+// ─── Sub-views ────────────────────────────────────────────────────────────────
+
 function SingleResultView({
-  result,
-  inputs,
-  reportRef,
+  result, inputs, activeTab, onTabChange, reportRef,
 }: {
   result: AnalyzeInvestmentResponse;
   inputs: InvestmentInput;
+  activeTab: Tab;
+  onTabChange: (t: Tab) => void;
   reportRef: React.RefObject<HTMLDivElement>;
 }) {
   return (
-    <div ref={reportRef} className="space-y-6">
-      {/* KPIs */}
+    <div className="space-y-4">
+      {/* Tab bar */}
+      <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onTabChange(t.id)}
+            className={`flex-1 rounded-lg py-2 text-xs font-medium transition ${
+              activeTab === t.id
+                ? "bg-primary-600 text-white shadow-sm dark:bg-primary-500"
+                : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div ref={reportRef} className="space-y-4">
+        {activeTab === "overview" && <OverviewTab result={result} inputs={inputs} />}
+        {activeTab === "simulation" && <SimulationTab result={result} inputs={inputs} />}
+        {activeTab === "deal" && <DealTab result={result} inputs={inputs} />}
+        {activeTab === "tax" && <TaxTab result={result} />}
+        {activeTab === "ai" && <AITab result={result} />}
+      </div>
+    </div>
+  );
+}
+
+function OverviewTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: InvestmentInput }) {
+  return (
+    <div className="space-y-4">
       <KPICards metrics={result.metrics} taxAnalysis={result.tax_analysis} />
-
-      {/* Risk */}
       <RiskBadge risk={result.risk} />
-
-      {/* Deal Analysis (V3 - optional) */}
-      {result.deal_analysis && (
-        <div className="space-y-4">
-          <DealScoreBadge deal={result.deal_analysis} />
-          <FairValueChart
-            deal={result.deal_analysis}
-            askingPrice={inputs.property_purchase_price}
-          />
-          <NegotiationCard deal={result.deal_analysis} />
-          <RedFlagsList flags={result.deal_analysis.red_flags} />
-        </div>
-      )}
-
-      {/* Charts */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Annual Cash Flow Breakdown
-          </h3>
+          <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Annual Cash Flow</h3>
           <CashFlowChart
             annualCashFlow={result.metrics.annual_cash_flow}
             emi={result.metrics.emi}
-            annualRent={inputs.expected_monthly_rent * 12}
+            annualRent={result.metrics.annual_rental_income}
             annualMaintenance={inputs.annual_maintenance_cost}
           />
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Property Growth
-          </h3>
+          <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Property Growth</h3>
           <PropertyGrowthChart
             purchasePrice={inputs.property_purchase_price}
             futureValue={result.metrics.future_property_value}
@@ -237,49 +285,94 @@ function SingleResultView({
           />
         </div>
       </div>
+      {result.cash_flow_timeline.length > 0 && (
+        <CashFlowTimeline data={result.cash_flow_timeline} />
+      )}
+    </div>
+  );
+}
 
-      {/* Monte Carlo */}
+function SimulationTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: InvestmentInput }) {
+  return (
+    <div className="space-y-4">
       {result.monte_carlo && (
-        <div className="space-y-4">
+        <>
           <MonteCarloCard data={result.monte_carlo} />
           <div className="grid gap-4 sm:grid-cols-2">
             <IRRDistributionChart data={result.monte_carlo} />
             <ScenarioOutcomeChart data={result.monte_carlo} />
           </div>
           <div className="flex justify-around rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-            <ProbabilityGauge
-              value={result.monte_carlo.probability_beating_fd}
-              label="Beats 7% FD"
-              subtitle="probability"
-            />
-            <ProbabilityGauge
-              value={result.monte_carlo.probability_negative_cashflow}
-              label="Negative Cash Flow"
-              subtitle="probability"
-            />
+            <ProbabilityGauge value={result.monte_carlo.probability_beating_fd} label="Beats 7% FD" subtitle="probability" />
+            <ProbabilityGauge value={result.monte_carlo.probability_negative_cashflow} label="Negative CF" subtitle="probability" />
           </div>
-        </div>
+        </>
       )}
-
-      {/* Sensitivity */}
       {result.sensitivity && <SensitivityTable data={result.sensitivity} />}
-
-      {/* Stress Test */}
       {result.stress_test && <StressTestCard data={result.stress_test} />}
+    </div>
+  );
+}
 
-      {/* Tax Analysis */}
+function DealTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: InvestmentInput }) {
+  return (
+    <div className="space-y-4">
+      {result.deal_analysis && (
+        <>
+          <DealScoreBadge deal={result.deal_analysis} />
+          <FairValueChart deal={result.deal_analysis} askingPrice={inputs.property_purchase_price} />
+          <NegotiationCard deal={result.deal_analysis} />
+          <RedFlagsList flags={result.deal_analysis.red_flags} greenFlags={result.deal_analysis.green_flags} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function TaxTab({ result }: { result: AnalyzeInvestmentResponse }) {
+  return (
+    <div className="space-y-4">
       {result.tax_analysis && <TaxAnalysisCard data={result.tax_analysis} />}
+    </div>
+  );
+}
 
-      {/* AI Summary */}
+function AITab({ result }: { result: AnalyzeInvestmentResponse }) {
+  return (
+    <div className="space-y-4">
       <AISummary analysis={result.ai_analysis} />
     </div>
   );
 }
 
 function PortfolioResultView({ data }: { data: AnalyzePortfolioResponse }) {
+  return <PortfolioDashboard data={data} />;
+}
+
+function LoadingState() {
   return (
-    <div className="space-y-6">
-      <PortfolioDashboard data={data} />
+    <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white py-32 dark:border-slate-700 dark:bg-slate-800">
+      <div className="text-center">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600 dark:border-primary-800 dark:border-t-primary-400" />
+        <p className="mt-4 font-medium text-slate-700 dark:text-slate-300">Analyzing investment…</p>
+        <p className="mt-1 text-sm text-slate-500">Running Monte Carlo & AI analysis</p>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ mode }: { mode: Mode }) {
+  return (
+    <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white py-24 dark:border-slate-700 dark:bg-slate-800">
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-900/30">
+          <span className="text-3xl">🏠</span>
+        </div>
+        <h3 className="font-semibold text-slate-800 dark:text-slate-200">
+          {mode === "single" ? "Enter property details to begin" : "Add properties to analyze portfolio"}
+        </h3>
+        <p className="mt-1 text-sm text-slate-500">Full analysis with AI insights, Monte Carlo & India tax treatment</p>
+      </div>
     </div>
   );
 }
