@@ -3,96 +3,52 @@
 import type { SensitivityResult } from "@/types/investment";
 import { formatPercent } from "@/lib/format";
 
-interface SensitivityTableProps {
-  data: SensitivityResult;
-}
-
-export function SensitivityTable({ data }: SensitivityTableProps) {
+export function SensitivityTable({ data }: { data: SensitivityResult }) {
   const rows = [
-    {
-      param: "Interest Rate",
-      minus: data.interest_rate_impact.minus_1_pct,
-      base: data.interest_rate_impact.base,
-      plus: data.interest_rate_impact.plus_1_pct,
-      minusLabel: "-1%",
-      plusLabel: "+1%",
-    },
-    {
-      param: "Appreciation",
-      minus: data.appreciation_impact.minus_2_pct,
-      base: data.appreciation_impact.base,
-      plus: data.appreciation_impact.plus_2_pct,
-      minusLabel: "-2%",
-      plusLabel: "+2%",
-    },
-    {
-      param: "Rent",
-      minus: data.rent_impact.minus_10_pct,
-      base: data.rent_impact.base,
-      plus: data.rent_impact.plus_10_pct,
-      minusLabel: "-10%",
-      plusLabel: "+10%",
-    },
+    { param: "Interest Rate", impact: data.interest_rate_impact },
+    { param: "Appreciation",  impact: data.appreciation_impact },
+    { param: "Rent",          impact: data.rent_impact },
+    { param: "Vacancy",       impact: data.vacancy_impact },
   ];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">
-        Sensitivity Analysis
-      </h3>
-      <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
-        IRR impact when key parameters change
-      </p>
+    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
+      <h3 className="mb-1 font-semibold text-slate-900 dark:text-slate-100">Sensitivity Analysis</h3>
+      <p className="mb-4 text-xs text-slate-500">IRR impact when key parameters change</p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-600">
-              <th className="py-2 text-left font-medium text-slate-700 dark:text-slate-300">
-                Parameter
-              </th>
-              <th className="py-2 text-right font-medium text-slate-700 dark:text-slate-300">
-                Down
-              </th>
-              <th className="py-2 text-right font-medium text-slate-700 dark:text-slate-300">
-                Base
-              </th>
-              <th className="py-2 text-right font-medium text-slate-700 dark:text-slate-300">
-                Up
-              </th>
+            <tr className="border-b border-slate-200 dark:border-slate-600 text-xs text-slate-500 uppercase tracking-wide">
+              <th className="py-2 text-left">Parameter</th>
+              <th className="py-2 text-right">Downside</th>
+              <th className="py-2 text-right">Base</th>
+              <th className="py-2 text-right">Upside</th>
+              <th className="py-2 text-right">Range</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.param}
-                className="border-b border-slate-100 dark:border-slate-700"
-              >
-                <td className="py-2 text-slate-700 dark:text-slate-300">
-                  {row.param}
-                </td>
-                <td
-                  className={`py-2 text-right ${
-                    row.minus < row.base
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-emerald-600 dark:text-emerald-400"
-                  }`}
-                >
-                  {formatPercent(row.minus)} ({row.minusLabel})
-                </td>
-                <td className="py-2 text-right font-medium text-slate-900 dark:text-slate-100">
-                  {formatPercent(row.base)}
-                </td>
-                <td
-                  className={`py-2 text-right ${
-                    row.plus > row.base
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-rose-600 dark:text-rose-400"
-                  }`}
-                >
-                  {formatPercent(row.plus)} ({row.plusLabel})
-                </td>
-              </tr>
-            ))}
+            {rows.map(({ param, impact }) => {
+              const range = impact.plus - impact.minus;
+              return (
+                <tr key={param} className="border-b border-slate-50 dark:border-slate-700/50">
+                  <td className="py-2.5 font-medium text-slate-700 dark:text-slate-300">{param}</td>
+                  <td className={`py-2.5 text-right ${impact.minus < impact.base ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                    {formatPercent(impact.minus)}
+                    <span className="ml-1 text-xs text-slate-400">({impact.minus_label})</span>
+                  </td>
+                  <td className="py-2.5 text-right font-semibold text-slate-900 dark:text-slate-100">
+                    {formatPercent(impact.base)}
+                  </td>
+                  <td className={`py-2.5 text-right ${impact.plus > impact.base ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {formatPercent(impact.plus)}
+                    <span className="ml-1 text-xs text-slate-400">({impact.plus_label})</span>
+                  </td>
+                  <td className="py-2.5 text-right text-slate-500">
+                    {formatPercent(range, 1)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
