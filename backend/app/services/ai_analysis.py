@@ -1,168 +1,191 @@
 """
-AI Analysis Service - Generates investment explanation using LLM.
-
-Uses structured prompts. LLM call is isolated for easy replacement.
+AI Analysis — PropInvest AI V3
+Uses OpenAI GPT-4o-mini with rich structured prompt. Falls back to rule-based mock.
 """
-
-import json
 import os
-from typing import Optional
-
-from app.models.investment import (
-    AIAnalysis,
-    InvestmentInput,
-    InvestmentMetrics,
-    RiskAssessment,
+import json
+from app.models.schemas import (
+    InvestmentInput, InvestmentMetrics, RiskAssessment,
+    TaxAnalysis, DealAnalysis, AIAnalysis
 )
 
 
 def _build_prompt(
-    input_data: InvestmentInput,
-    metrics: InvestmentMetrics,
+    inp: InvestmentInput,
+    m: InvestmentMetrics,
     risk: RiskAssessment,
+    tax: TaxAnalysis,
+    deal: DealAnalysis,
 ) -> str:
-    """Build structured prompt for AI analysis."""
-    return f"""You are an expert financial advisor for Indian real estate investors. Analyze this property investment and provide a clear, actionable assessment.
+    return f"""You are an expert Indian real estate investment advisor.
 
-## Investment Parameters
-- Property Price: ₹{input_data.property_purchase_price:,.0f}
-- Down Payment: ₹{input_data.down_payment:,.0f}
-- Loan Interest: {input_data.loan_interest_rate}%
-- Loan Tenure: {input_data.loan_tenure_years} years
-- Monthly Rent: ₹{input_data.expected_monthly_rent:,.0f}
-- Annual Maintenance: ₹{input_data.annual_maintenance_cost:,.0f}
-- Expected Appreciation: {input_data.expected_annual_appreciation}%/year
-- Holding Period: {input_data.holding_period_years} years
-- Tax Slab: {input_data.investor_tax_slab}%
+PROPERTY DATA:
+- Purchase Price: ₹{inp.property_purchase_price:,.0f}
+- Down Payment: ₹{inp.down_payment:,.0f} ({m.ltv_ratio:.0f}% LTV)
+- City: {inp.city or "Not specified"}
+- Monthly Rent: ₹{inp.expected_monthly_rent:,.0f}
+- Vacancy Rate: {inp.vacancy_rate}%
+- Holding Period: {inp.holding_period_years} years
 
-## Calculated Metrics
-- EMI: ₹{metrics.emi:,.0f}/month
-- Rental Yield: {metrics.annual_rental_yield}%
-- Annual Cash Flow: ₹{metrics.annual_cash_flow:,.0f}
-- IRR: {metrics.irr}%
-- ROI: {metrics.roi}%
-- Capital Gains: ₹{metrics.capital_gains:,.0f}
-- Risk: {risk.label} (Score: {risk.score}/10)
+FINANCIAL METRICS:
+- EMI: ₹{m.emi:,.0f}/month
+- Annual Cash Flow: ₹{m.annual_cash_flow:,.0f}
+- Gross Rental Yield: {m.gross_rental_yield:.2f}%
+- Net Rental Yield: {m.net_rental_yield:.2f}%
+- Cap Rate: {m.cap_rate:.2f}%
+- Cash-on-Cash Return: {m.cash_on_cash_return:.2f}%
+- DSCR: {m.dscr:.2f}x
+- Break-even Occupancy: {m.break_even_occupancy:.1f}%
+- IRR: {m.irr:.2f}%
+- NPV (10% discount): ₹{m.npv:,.0f}
+- ROI: {m.roi:.1f}%
+- Post-Tax IRR: {tax.post_tax_irr:.2f}%
+- Future Property Value: ₹{m.future_property_value:,.0f}
 
-## Your Task
-Respond in JSON format only, with exactly these keys:
+RISK: {risk.label} ({risk.total_score:.0f}/100)
+DEAL SCORE: {deal.deal_score:.0f}/100 — {deal.label} (Rating: {deal.rating})
+RED FLAGS: {', '.join(deal.red_flags) if deal.red_flags else 'None'}
+
+TAX:
+- Section 24(b) Tax Savings: ₹{tax.tax_savings_from_interest:,.0f}
+- Rental Tax Liability: ₹{tax.rental_tax_liability:,.0f}
+- LTCG Tax: ₹{tax.capital_gains_tax:,.0f}
+
+Respond ONLY with a JSON object (no markdown) with these exact keys:
 {{
-  "verdict": "Good Investment" or "Moderate Investment" or "Avoid",
-  "pros": ["pro1", "pro2", "pro3"],
-  "cons": ["con1", "con2", "con3"],
-  "fd_comparison": "2-3 sentences comparing this investment with a 7% FD. Be specific about numbers.",
-  "recommendation": "2-3 sentences with clear, actionable recommendation for the investor",
-  "summary": "2-3 sentence executive summary in simple English"
-}}
-
-Be concise. Use Indian Rupee formatting. Compare IRR/ROI with 7% FD. Mention the risk level.
-Respond with ONLY the JSON object, no other text."""
-
-
-def _call_llm(prompt: str) -> Optional[str]:
-    """
-    Call LLM API. Isolated for easy replacement.
-
-    Supports OpenAI-compatible API (OpenAI, Azure, or local models).
-    Set OPENAI_API_KEY in .env. Falls back to mock if not configured.
-    """
-    api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL")  # For Azure/local
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-
-    if not api_key:
-        return _mock_llm_response(prompt)
-
-    try:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key, base_url=base_url if base_url else None)
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        # Fallback to mock on API failure
-        return _mock_llm_response(prompt, str(e))
+  "verdict": "1 sentence verdict",
+  "summary": "2-3 sentence executive summary",
+  "pros": ["pro 1", "pro 2", "pro 3"],
+  "cons": ["con 1", "con 2", "con 3"],
+  "key_risks": ["risk 1", "risk 2"],
+  "fd_comparison": "1-2 sentence comparison to 7% FD",
+  "recommendation": "1-2 sentence actionable recommendation",
+  "exit_strategy": "Recommended exit strategy and timeline",
+  "rent_optimization": "Specific advice to maximize rental income",
+  "negotiation_tip": "Specific negotiation suggestion"
+}}"""
 
 
-def _mock_llm_response(prompt: str, error: Optional[str] = None) -> str:
-    """
-    Generate mock analysis when API is unavailable.
-    Uses rule-based logic to produce reasonable output.
-    """
-    # Parse metrics from prompt (simplified - we have them in context but this is fallback)
-    # For mock we use generic sensible output
-    return json.dumps({
-        "verdict": "Moderate Investment",
-        "pros": [
-            "Property builds equity over time through EMI payments",
-            "Rental income can offset part of the EMI burden",
-            "Real estate in India has historically appreciated over long periods",
-        ],
-        "cons": [
-            "Property is illiquid compared to FD or mutual funds",
-            "Maintenance and vacancy can eat into returns",
-            "Interest rate changes can affect refinancing costs",
-        ],
-        "fd_comparison": "A 7% FD would give predictable, risk-free returns. This property's IRR should ideally exceed 7% to justify the additional risk, illiquidity, and effort. Compare your calculated IRR with 7% to make an informed decision.",
-        "recommendation": "Review the IRR and cash flow metrics. If IRR exceeds 8-9% and cash flow is positive or break-even, this could be a reasonable investment. Otherwise, consider FDs or diversified equity for similar tenure.",
-        "summary": "This investment has moderate risk. Key factors are rental yield, cash flow, and appreciation. Compare IRR with 7% FD before deciding.",
-    }, indent=2)
-
-
-def _parse_ai_response(response_text: str) -> AIAnalysis:
-    """Parse LLM response into AIAnalysis model."""
-    try:
-        # Try to extract JSON if response has extra text
-        text = response_text.strip()
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start >= 0 and end > start:
-            json_str = text[start:end]
-        else:
-            json_str = text
-
-        data = json.loads(json_str)
-        return AIAnalysis(
-            verdict=data.get("verdict", "Moderate Investment"),
-            pros=data.get("pros", []),
-            cons=data.get("cons", []),
-            fd_comparison=data.get("fd_comparison", ""),
-            recommendation=data.get("recommendation", ""),
-            summary=data.get("summary", ""),
-        )
-    except (json.JSONDecodeError, KeyError) as e:
-        return AIAnalysis(
-            verdict="Unable to analyze",
-            pros=[],
-            cons=[],
-            fd_comparison="Compare your IRR with 7% FD returns.",
-            recommendation="Review the metrics above and consult a financial advisor.",
-            summary=f"AI analysis could not be generated ({e}). Use the metrics and risk score above.",
-        )
-
-
-def generate_ai_analysis(
-    input_data: InvestmentInput,
-    metrics: InvestmentMetrics,
+def _mock_analysis(
+    m: InvestmentMetrics,
     risk: RiskAssessment,
+    deal: DealAnalysis,
+    tax: TaxAnalysis,
 ) -> AIAnalysis:
-    """
-    Generate AI-powered investment analysis.
+    """Rule-based fallback when OpenAI is not configured."""
+    irr = m.irr
+    verdict = (
+        "Strong Buy" if irr >= 12 else
+        "Buy" if irr >= 9 else
+        "Hold" if irr >= 7 else
+        "Avoid"
+    )
 
-    Args:
-        input_data: User inputs
-        metrics: Calculated financial metrics
-        risk: Risk assessment
+    pros = []
+    cons = []
 
-    Returns:
-        AIAnalysis with verdict, pros, cons, FD comparison, recommendation
-    """
-    prompt = _build_prompt(input_data, metrics, risk)
-    response = _call_llm(prompt)
-    if response:
-        return _parse_ai_response(response)
-    return _parse_ai_response(_mock_llm_response(prompt))
+    if m.irr >= 10:
+        pros.append(f"Strong {m.irr:.1f}% IRR — well above 7% FD benchmark")
+    if m.annual_cash_flow > 0:
+        pros.append(f"Positive cash flow of ₹{m.annual_cash_flow:,.0f}/year from day one")
+    if m.dscr >= 1.2:
+        pros.append(f"Healthy DSCR of {m.dscr:.2f}x — rental income comfortably covers EMI")
+    if m.net_rental_yield >= 4:
+        pros.append(f"Above-average net yield of {m.net_rental_yield:.1f}%")
+    if tax.net_tax_benefit > 0:
+        pros.append(f"Section 24(b) delivers ₹{tax.net_tax_benefit:,.0f}/year net tax benefit")
+
+    if m.annual_cash_flow < 0:
+        cons.append(f"Negative cash flow of ₹{abs(m.annual_cash_flow):,.0f}/year requires monthly top-up")
+    if m.dscr < 1.0:
+        cons.append(f"DSCR {m.dscr:.2f}x — rent does not cover EMI, requiring personal income support")
+    if m.irr < 7:
+        cons.append(f"IRR {m.irr:.1f}% underperforms a risk-free 7% FD")
+    if m.ltv_ratio > 75:
+        cons.append(f"High {m.ltv_ratio:.0f}% LTV increases financial risk")
+    if m.break_even_occupancy > 85:
+        cons.append(f"High break-even occupancy {m.break_even_occupancy:.0f}% leaves little margin for vacancy")
+
+    # Ensure at least 2 pros/cons
+    if len(pros) < 2:
+        pros.append("Real estate provides portfolio diversification from equity markets")
+    if len(cons) < 2:
+        cons.append("Illiquid asset — exit takes 3-6 months in Indian market")
+
+    fd_comp = (
+        f"With {m.irr:.1f}% IRR vs 7% FD, this property {'outperforms' if m.irr > 7 else 'underperforms'} "
+        f"risk-free instruments by {abs(m.irr - 7):.1f}pp. "
+        f"{'The premium compensates for illiquidity and management overhead.' if m.irr > 9 else 'The risk-adjusted return does not justify preference over FD.'}"
+    )
+
+    rec = (
+        f"{'Proceed with acquisition' if irr in ['Strong Buy', 'Buy'] else 'Reconsider or negotiate price down'}. "
+        f"{'Target {:.1f}% yield improvement through rent optimization.'.format(max(0, 4 - m.net_rental_yield)) if m.net_rental_yield < 4 else 'Maintain occupancy above {:.0f}% to preserve returns.'.format(m.break_even_occupancy)}"
+    )
+
+    exit_strategy = (
+        f"Optimal exit at year {min(inp_years, 10) if (inp_years := 10) else 10} when capital gains benefit from full indexation. "
+        f"Target ₹{m.future_property_value * 1.1:,.0f} exit price to absorb 10% agent fees and LTCG."
+        if m.capital_gains > 0
+        else "Hold for full tenure to maximize equity build-up before selling."
+    )
+
+    rent_opt = (
+        f"Current ₹{m.annual_rental_income / 12:,.0f}/month is "
+        f"{'below market' if m.gross_rental_yield < 3.5 else 'at market rate'}. "
+        f"{'Consider furnished rental (+20-30% premium) or short-term let via platforms for higher yield.' if m.gross_rental_yield < 4 else 'Escalate rent 5-8% annually, add parking/storage as premium add-ons.'}"
+    )
+
+    return AIAnalysis(
+        verdict=verdict,
+        summary=(
+            f"{verdict}: {m.irr:.1f}% IRR with {deal.label.lower()} deal quality ({deal.deal_score:.0f}/100). "
+            f"DSCR of {m.dscr:.2f}x and {m.net_rental_yield:.1f}% net yield "
+            f"{'supports' if m.dscr >= 1 else 'challenges'} the investment thesis. "
+            f"Post-tax IRR stands at {tax.post_tax_irr:.1f}% after India-specific tax treatment."
+        ),
+        pros=pros[:4],
+        cons=cons[:4],
+        key_risks=[r for r in deal.red_flags[:3]] or [
+            "Market liquidity risk in exit scenario",
+            "Interest rate sensitivity on floating rate loans"
+        ],
+        fd_comparison=fd_comp,
+        recommendation=rec,
+        exit_strategy=exit_strategy,
+        rent_optimization=rent_opt,
+        negotiation_tip=deal.negotiation_suggestion,
+    )
+
+
+async def get_ai_analysis(
+    inp: InvestmentInput,
+    m: InvestmentMetrics,
+    risk: RiskAssessment,
+    tax: TaxAnalysis,
+    deal: DealAnalysis,
+) -> AIAnalysis:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return _mock_analysis(m, risk, deal, tax)
+
+    try:
+        import httpx
+        prompt = _build_prompt(inp, m, risk, tax, deal)
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3,
+                    "max_tokens": 800,
+                },
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            data = json.loads(content)
+            return AIAnalysis(**data)
+    except Exception:
+        return _mock_analysis(m, risk, deal, tax)
