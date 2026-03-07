@@ -9,6 +9,7 @@ export interface RiskIndexResult {
   components: RiskComponent[];
   insight: string;
   recommendation: string;
+  improvements: string[];      // Task 15: actionable suggestions to reduce risk
 }
 
 export interface RiskComponent {
@@ -126,5 +127,18 @@ export function calculateRiskIndex(inp: RiskIndexInput): RiskIndexResult {
     riskIndex <= 7 ? "Consider risk mitigations before proceeding. Review DSCR, vacancy, and leverage." :
     "High risk — reconsider or renegotiate terms significantly before investing.";
 
-  return { riskIndex, investmentScore, label, color, components, insight, recommendation };
+  // Task 15: actionable improvement suggestions based on danger/warning components
+  const improvements: string[] = [];
+  for (const c of components) {
+    if (c.status === "danger" || c.status === "warning") {
+      if (c.name.includes("DSCR"))       improvements.push("Increase down payment or reduce loan amount to improve debt coverage ratio.");
+      if (c.name.includes("Vacancy"))    improvements.push("Choose high-demand locations and price rent competitively to reduce vacancy risk.");
+      if (c.name.includes("Liquidity"))  improvements.push("Prefer metro/tier-1 cities and mid-range price segments for easier exit.");
+      if (c.name.includes("Cycle"))      improvements.push("Wait for market correction or Recovery phase for a better entry price.");
+      if (c.name.includes("Supply"))     improvements.push("Avoid oversupplied micro-markets; research new project launches in the area.");
+      if (c.name.includes("Leverage"))   improvements.push("Increase down payment to 30–40% to reduce LTV and leverage risk.");
+    }
+  }
+
+  return { riskIndex, investmentScore, label, color, components, insight, recommendation, improvements };
 }
