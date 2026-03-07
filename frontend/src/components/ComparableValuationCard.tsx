@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { calculateComparableValuation } from "@/lib/comparableValuationEngine";
 import { formatINR } from "@/lib/format";
+import { DataConfidenceIndicator } from "@/components/DataConfidenceIndicator";
 
 interface Props {
   propertyPrice: number;
@@ -115,6 +116,12 @@ export function ComparableValuationCard({
       <p className="mt-2 text-xs text-slate-400">
         Based on comparable transactions in {city || "this city"} · Estimates only
       </p>
+      <p className={`mt-1 text-xs font-medium ${verdictStyles.badge.includes("emerald") ? "text-emerald-600 dark:text-emerald-400" : verdictStyles.badge.includes("rose") ? "text-rose-600 dark:text-rose-400" : verdictStyles.badge.includes("amber") ? "text-amber-600 dark:text-amber-400" : "text-sky-600 dark:text-sky-400"}`}>
+        {result.verdictSummary}
+      </p>
+      <div className="mt-3">
+        <DataConfidenceIndicator city={city} module="Comparable Data" />
+      </div>
     </div>
   );
 }
