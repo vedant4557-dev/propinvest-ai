@@ -13,5 +13,5 @@ async function apiFetch(endpoint: string, body: unknown) {
   return res.json();
 }
 
-export const analyzeInvestment = (data) => apiFetch("/analyze-investment", data);
-export const analyzePortfolio = (data) => apiFetch("/analyze-portfolio", data);
+export const analyzeInvestment = (data: unknown) => apiFetch("/analyze-investment", data);
+export const analyzePortfolio = (data: unknown) => apiFetch("/analyze-portfolio", data);
