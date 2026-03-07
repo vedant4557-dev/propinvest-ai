@@ -1,5 +1,6 @@
-// Location Score Module — PropInvest AI
-// Scores a city/market from 0–10 based on yield, appreciation, risk
+// Location Score Module — PropInvest AI V3.1 (Upgraded)
+// Scores a city/market from 0–10 based on yield, appreciation, risk,
+// infrastructure growth, employment growth, population trends, rental demand
 
 export interface LocationScoreResult {
   score: number;          // 0–10
@@ -8,16 +9,48 @@ export interface LocationScoreResult {
   yieldScore: number;
   growthScore: number;
   riskScore: number;
+  // V3.1 additions
+  infrastructureScore: number;
+  employmentScore: number;
+  populationScore: number;
+  rentalDemandScore: number;
   breakdown: { label: string; score: number; weight: number }[];
   insight: string;
 }
 
 interface LocationScoreInput {
   city: string;
-  rentalYield: number;      // actual yield %
-  appreciation: number;     // actual appreciation %
+  rentalYield: number;
+  appreciation: number;
   dscr?: number;
   irr?: number;
+}
+
+// City intelligence database — V3.1
+const CITY_INTELLIGENCE: Record<string, {
+  infrastructure: number;
+  employment: number;
+  population: number;
+  rentalDemand: number;
+}> = {
+  bangalore: { infrastructure: 7, employment: 9, population: 8, rentalDemand: 9 },
+  mumbai:    { infrastructure: 8, employment: 8, population: 7, rentalDemand: 8 },
+  delhi:     { infrastructure: 8, employment: 7, population: 8, rentalDemand: 7 },
+  hyderabad: { infrastructure: 8, employment: 9, population: 9, rentalDemand: 9 },
+  pune:      { infrastructure: 7, employment: 8, population: 8, rentalDemand: 8 },
+  chennai:   { infrastructure: 7, employment: 7, population: 7, rentalDemand: 7 },
+  kolkata:   { infrastructure: 5, employment: 6, population: 6, rentalDemand: 6 },
+  ahmedabad: { infrastructure: 7, employment: 7, population: 7, rentalDemand: 6 },
+};
+
+const DEFAULT_INTELLIGENCE = { infrastructure: 6, employment: 6, population: 6, rentalDemand: 6 };
+
+function normalizeCity(city: string): string {
+  const c = city.toLowerCase().trim();
+  if (/bengaluru/.test(c)) return "bangalore";
+  if (/new delhi|ncr|gurgaon|gurugram|noida/.test(c)) return "delhi";
+  if (/navi mumbai|thane/.test(c)) return "mumbai";
+  return c;
 }
 
 function scoreYield(yield_: number): number {
@@ -43,11 +76,9 @@ function scoreRisk(dscr: number, irr: number): number {
   if (dscr >= 1.5) s += 2;
   else if (dscr >= 1.2) s += 1;
   else if (dscr < 1) s -= 2;
-
   if (irr >= 12) s += 2;
   else if (irr >= 8) s += 1;
   else if (irr < 5) s -= 2;
-
   return Math.max(0, Math.min(10, s));
 }
 
@@ -65,37 +96,57 @@ function getLabel(score: number): string {
   return "Below Average Market";
 }
 
-function getInsight(grade: string, city: string): string {
-  const c = city || "this market";
-  if (grade === "A") return `${c} shows strong fundamentals — high yield, solid appreciation, and manageable risk.`;
-  if (grade === "B") return `${c} is a decent investment market with reasonable returns and moderate risk.`;
-  if (grade === "C") return `${c} presents average returns. Consider if alternatives offer better risk-adjusted gains.`;
-  return `${c} shows weak investment fundamentals. Carefully evaluate before committing.`;
-}
-
 export function calculateLocationScore(input: LocationScoreInput): LocationScoreResult {
   const { city, rentalYield, appreciation, dscr = 1.2, irr = 8 } = input;
+  const intel = CITY_INTELLIGENCE[normalizeCity(city)] ?? DEFAULT_INTELLIGENCE;
 
-  const yieldScore = scoreYield(rentalYield);
-  const growthScore = scoreGrowth(appreciation);
-  const riskScore = scoreRisk(dscr, irr);
+  const yieldScore        = scoreYield(rentalYield);
+  const growthScore       = scoreGrowth(appreciation);
+  const riskScore         = scoreRisk(dscr, irr);
+  const infrastructureScore = intel.infrastructure;
+  const employmentScore   = intel.employment;
+  const populationScore   = intel.population;
+  const rentalDemandScore = intel.rentalDemand;
 
-  // Weighted: yield 35%, growth 40%, risk 25%
-  const score = Math.round((yieldScore * 0.35 + growthScore * 0.40 + riskScore * 0.25) * 10) / 10;
+  const score = Math.round((
+    yieldScore        * 0.25 +
+    growthScore       * 0.25 +
+    riskScore         * 0.20 +
+    employmentScore   * 0.10 +
+    rentalDemandScore * 0.10 +
+    infrastructureScore * 0.05 +
+    populationScore   * 0.05
+  ) * 10) / 10;
+
   const grade = getGrade(score);
 
+  const highlights: string[] = [];
+  if (intel.employment >= 8) highlights.push("strong employment growth");
+  if (intel.infrastructure >= 8) highlights.push("infrastructure investment");
+  if (intel.rentalDemand >= 8) highlights.push("high rental demand");
+  if (intel.population >= 8) highlights.push("population inflow");
+  const suffix = highlights.length > 0 ? ` Key drivers: ${highlights.slice(0, 2).join(", ")}.` : "";
+
+  const c = city || "this market";
+  const insight =
+    grade === "A" ? `${c} shows strong fundamentals — high yield, solid appreciation, and manageable risk.${suffix}` :
+    grade === "B" ? `${c} is a decent investment market with reasonable returns and moderate risk.${suffix}` :
+    grade === "C" ? `${c} presents average returns. Consider if alternatives offer better risk-adjusted gains.` :
+    `${c} shows weak investment fundamentals. Carefully evaluate before committing.`;
+
   return {
-    score,
-    grade,
-    label: getLabel(score),
-    yieldScore,
-    growthScore,
-    riskScore,
+    score, grade, label: getLabel(score),
+    yieldScore, growthScore, riskScore,
+    infrastructureScore, employmentScore, populationScore, rentalDemandScore,
     breakdown: [
-      { label: "Rental Yield", score: yieldScore, weight: 35 },
-      { label: "Growth Potential", score: growthScore, weight: 40 },
-      { label: "Risk Profile", score: riskScore, weight: 25 },
+      { label: "Rental Yield",         score: yieldScore,          weight: 25 },
+      { label: "Growth Potential",      score: growthScore,         weight: 25 },
+      { label: "Risk Profile",          score: riskScore,           weight: 20 },
+      { label: "Employment Growth",     score: employmentScore,     weight: 10 },
+      { label: "Rental Demand",         score: rentalDemandScore,   weight: 10 },
+      { label: "Infrastructure Growth", score: infrastructureScore, weight: 5  },
+      { label: "Population Trends",     score: populationScore,     weight: 5  },
     ],
-    insight: getInsight(grade, city),
+    insight,
   };
 }
