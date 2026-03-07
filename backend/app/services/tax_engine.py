@@ -63,7 +63,11 @@ def calculate_tax(inp: InvestmentInput, metrics: InvestmentMetrics) -> TaxAnalys
             cf += net_sale_proceeds
         flows.append(cf)
 
-    post_tax_irr = calculate_irr(flows) or metrics.irr
+    post_tax_irr_raw = calculate_irr(flows) or metrics.irr
+    # Guard: IRR solver can return extreme values on pathological inputs
+    import math as _math
+    post_tax_irr = post_tax_irr_raw if _math.isfinite(post_tax_irr_raw) else metrics.irr
+    post_tax_irr = max(-100.0, min(post_tax_irr, 300.0))
 
     net_tax_benefit = tax_savings - rental_tax
 
