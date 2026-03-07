@@ -1,12 +1,50 @@
 """
 Financial Engine — PropInvest AI V3
 Calculates all investment metrics: EMI, IRR, NPV, Cap Rate, DSCR, Cash-on-Cash, etc.
+V3.1 overflow fix: safe_float() guards all values before round(); future_value clamped;
+DSCR inf replaced with sentinel; appreciation rate validated before exponentiation.
 """
 import math
 from app.models.schemas import (
     InvestmentInput, InvestmentMetrics, CashFlowYear
 )
 from app.utils.irr import calculate_irr, calculate_npv
+
+# Maximum safe appreciation rate for exponentiation (per year, decimal form)
+# 25%/yr over 30 years = (1.25)^30 = 807 — safe. 50% = 191,751 — safe.
+# This clamp is a last-resort safety net; Pydantic already caps at 50%.
+_MAX_APPREC_RATE = 0.50   # 50% annual — matches Pydantic schema le=50
+
+# Sentinel for DSCR when EMI=0 (no loan): use 999 instead of inf
+# JSON serializers cannot encode float('inf') → OverflowError(34)
+_DSCR_NO_LOAN = 999.0
+
+
+def _safe_float(value: float, fallback: float = 0.0, max_abs: float = 1e15) -> float:
+    """
+    Return value if finite and within max_abs, else fallback.
+    Prevents OverflowError(34) when Pydantic serializes non-finite floats to JSON.
+    """
+    if not math.isfinite(value):
+        return fallback
+    if abs(value) > max_abs:
+        return math.copysign(max_abs, value)
+    return value
+
+
+def _safe_pow_appreciation(price: float, annual_rate_pct: float, years: int) -> float:
+    """
+    Compute price * (1 + rate)^years safely.
+    annual_rate_pct is in percent (e.g. 7.0 for 7%).
+    Clamps rate to _MAX_APPREC_RATE before exponentiation.
+    Returns price if result is non-finite.
+    """
+    rate = max(-0.20, min(annual_rate_pct / 100, _MAX_APPREC_RATE))
+    try:
+        result = price * (1.0 + rate) ** years
+        return result if math.isfinite(result) else price
+    except OverflowError:
+        return price
 
 
 def calculate_emi(principal: float, annual_rate: float, tenure_years: int) -> float:
@@ -30,7 +68,11 @@ def build_cash_flow_timeline(inp: InvestmentInput, emi: float) -> list[CashFlowY
         maintenance = inp.annual_maintenance_cost
         net_cf = rent - emi_annual - maintenance
         cumulative += net_cf
-        pv = inp.property_purchase_price * (1 + inp.expected_annual_appreciation / 100) ** year
+        pv = _safe_pow_appreciation(
+            inp.property_purchase_price,
+            inp.expected_annual_appreciation,
+            year,
+        )
         # Simple equity approximation
         remaining_tenure = max(0, inp.loan_tenure_years - year)
         if remaining_tenure > 0 and inp.loan_interest_rate > 0:
@@ -93,7 +135,8 @@ def run_engine(inp: InvestmentInput) -> tuple[InvestmentMetrics, list[CashFlowYe
     cash_on_cash = (annual_cash_flow / effective_down) * 100 if effective_down > 0 else 0
 
     # ── DSCR ─────────────────────────────────────────────────────────────────
-    dscr = noi / annual_emi if annual_emi > 0 else float("inf")
+    # float('inf') when annual_emi=0 causes OverflowError(34) in JSON serialization
+    dscr = noi / annual_emi if annual_emi > 0 else _DSCR_NO_LOAN
 
     # ── Break-even occupancy ──────────────────────────────────────────────────
     # What occupancy % is needed to cover EMI + maintenance?
@@ -104,9 +147,13 @@ def run_engine(inp: InvestmentInput) -> tuple[InvestmentMetrics, list[CashFlowYe
     ltv_ratio = (loan_amount / inp.property_purchase_price) * 100
 
     # ── Future value & capital gains ─────────────────────────────────────────
-    future_value = inp.property_purchase_price * (
-        1 + inp.expected_annual_appreciation / 100
-    ) ** inp.holding_period_years
+    # V3.1: use _safe_pow_appreciation to prevent OverflowError(34) from
+    # exponentiation when appreciation or holding period produces extreme values
+    future_value = _safe_pow_appreciation(
+        inp.property_purchase_price,
+        inp.expected_annual_appreciation,
+        inp.holding_period_years,
+    )
     capital_gains = future_value - inp.property_purchase_price
     # Flat 20% LTCG for metrics (detailed indexation in tax engine)
     cg_tax = max(0, capital_gains * 0.20) if inp.holding_period_years >= 2 else capital_gains * inp.investor_tax_slab / 100
@@ -150,30 +197,30 @@ def run_engine(inp: InvestmentInput) -> tuple[InvestmentMetrics, list[CashFlowYe
     timeline = build_cash_flow_timeline(inp, emi)
 
     metrics = InvestmentMetrics(
-        emi=round(emi, 2),
-        loan_amount=round(loan_amount, 2),
-        total_acquisition_cost=round(total_acquisition_cost, 2),
-        effective_down_payment=round(effective_down, 2),
-        annual_rental_income=round(gross_annual_rent, 2),
-        effective_annual_rent=round(effective_annual_rent, 2),
-        annual_cash_flow=round(annual_cash_flow, 2),
-        monthly_cash_flow=round(monthly_cash_flow, 2),
-        total_interest_paid=round(total_interest, 2),
-        gross_rental_yield=round(gross_rental_yield, 2),
-        net_rental_yield=round(net_rental_yield, 2),
-        cash_on_cash_return=round(cash_on_cash, 2),
-        cap_rate=round(cap_rate, 2),
-        total_equity_built=round(equity_built, 2),
-        future_property_value=round(future_value, 2),
-        capital_gains=round(capital_gains, 2),
-        capital_gains_tax=round(cg_tax, 2),
-        irr=round(irr, 2),
-        npv=round(npv, 2),
-        roi=round(roi, 2),
-        total_invested=round(total_invested, 2),
-        dscr=round(dscr, 3),
-        break_even_occupancy=round(min(break_even_occupancy, 100), 2),
-        ltv_ratio=round(ltv_ratio, 2),
+        emi=round(_safe_float(emi), 2),
+        loan_amount=round(_safe_float(loan_amount), 2),
+        total_acquisition_cost=round(_safe_float(total_acquisition_cost), 2),
+        effective_down_payment=round(_safe_float(effective_down), 2),
+        annual_rental_income=round(_safe_float(gross_annual_rent), 2),
+        effective_annual_rent=round(_safe_float(effective_annual_rent), 2),
+        annual_cash_flow=round(_safe_float(annual_cash_flow), 2),
+        monthly_cash_flow=round(_safe_float(monthly_cash_flow), 2),
+        total_interest_paid=round(_safe_float(total_interest), 2),
+        gross_rental_yield=round(_safe_float(gross_rental_yield, max_abs=100), 2),
+        net_rental_yield=round(_safe_float(net_rental_yield, max_abs=100), 2),
+        cash_on_cash_return=round(_safe_float(cash_on_cash, max_abs=1000), 2),
+        cap_rate=round(_safe_float(cap_rate, max_abs=100), 2),
+        total_equity_built=round(_safe_float(equity_built), 2),
+        future_property_value=round(_safe_float(future_value), 2),
+        capital_gains=round(_safe_float(capital_gains), 2),
+        capital_gains_tax=round(_safe_float(cg_tax), 2),
+        irr=round(_safe_float(irr, max_abs=300), 2),
+        npv=round(_safe_float(npv), 2),
+        roi=round(_safe_float(roi, max_abs=10000), 2),
+        total_invested=round(_safe_float(total_invested), 2),
+        dscr=round(_safe_float(dscr, fallback=0.0, max_abs=999), 3),
+        break_even_occupancy=round(min(_safe_float(break_even_occupancy, max_abs=100), 100), 2),
+        ltv_ratio=round(_safe_float(ltv_ratio, max_abs=100), 2),
     )
 
     return metrics, timeline
