@@ -172,6 +172,7 @@ export interface AnalyzeInvestmentResponse {
   deal_analysis?: DealAnalysis | null;
   stress_test?: StressTestResult | null;
   cash_flow_timeline: CashFlowYear[];
+  input_warnings?: { field: string; message: string; severity: string; suggestion?: string }[];
 }
 
 export interface PortfolioMetrics {
