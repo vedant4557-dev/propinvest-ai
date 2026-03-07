@@ -126,3 +126,98 @@ export function estimateCapRate(city: string): number {
 export function getSupportedCities(): string[] {
   return Object.keys(CITY_BENCHMARKS).map(c => c.charAt(0).toUpperCase() + c.slice(1));
 }
+
+// ─── Rental Benchmark Analysis (V3.1 extension) ──────────────────────────────
+
+export type RentalCompetitiveness =
+  | "Above Market"
+  | "Market Aligned"
+  | "Below Market";
+
+export interface RentalBenchmarkResult {
+  propertyRentPerSqft: number;
+  marketRentPerSqft: number;
+  competitiveness: RentalCompetitiveness;
+  competitivenessScore: number;   // 0–100
+  deviationPercent: number;       // positive = above market
+  label: string;
+  color: "green" | "blue" | "red";
+  insight: string;
+}
+
+// City benchmark rent per sqft (INR/month)
+const CITY_RENT_PER_SQFT: Record<string, number> = {
+  bangalore: 28,
+  mumbai:    55,
+  delhi:     35,
+  hyderabad: 22,
+  pune:      25,
+  chennai:   22,
+  kolkata:   18,
+  ahmedabad: 16,
+};
+
+const DEFAULT_RENT_PER_SQFT = 22;
+
+function _normalizeCity(city: string): string {
+  const c = city.toLowerCase().trim();
+  if (/bengaluru/.test(c)) return "bangalore";
+  if (/new delhi|ncr|gurgaon|gurugram|noida/.test(c)) return "delhi";
+  if (/navi mumbai|thane/.test(c)) return "mumbai";
+  return c;
+}
+
+export function getRentalBenchmark(
+  city: string,
+  propertyAreaSqft: number,
+  monthlyRent: number
+): RentalBenchmarkResult {
+  const key = _normalizeCity(city);
+  const marketRentPerSqft = CITY_RENT_PER_SQFT[key] ?? DEFAULT_RENT_PER_SQFT;
+
+  // Guard division by zero
+  const area = propertyAreaSqft > 0 ? propertyAreaSqft : 1;
+  const propertyRentPerSqft = Math.round((monthlyRent / area) * 10) / 10;
+
+  const deviationPercent =
+    marketRentPerSqft > 0
+      ? Math.round(((propertyRentPerSqft - marketRentPerSqft) / marketRentPerSqft) * 1000) / 10
+      : 0;
+
+  let competitiveness: RentalCompetitiveness;
+  let color: RentalBenchmarkResult["color"];
+  let competitivenessScore: number;
+
+  if (deviationPercent > 10) {
+    competitiveness = "Above Market";
+    color = "green";
+    competitivenessScore = Math.min(100, 60 + deviationPercent * 2);
+  } else if (deviationPercent >= -10) {
+    competitiveness = "Market Aligned";
+    color = "blue";
+    competitivenessScore = 80;
+  } else {
+    competitiveness = "Below Market";
+    color = "red";
+    competitivenessScore = Math.max(0, 60 + deviationPercent * 2);
+  }
+
+  const cityName = city || "this market";
+  const insight =
+    competitiveness === "Above Market"
+      ? `Rent is ${Math.abs(deviationPercent).toFixed(0)}% above ${cityName} benchmark — strong rental income potential.`
+      : competitiveness === "Market Aligned"
+      ? `Rent aligns with ${cityName} market rates — realistic and sustainable.`
+      : `Rent is ${Math.abs(deviationPercent).toFixed(0)}% below ${cityName} benchmark — potential upside if rent is increased.`;
+
+  return {
+    propertyRentPerSqft,
+    marketRentPerSqft,
+    competitiveness,
+    competitivenessScore: Math.round(competitivenessScore),
+    deviationPercent,
+    label: competitiveness,
+    color,
+    insight,
+  };
+}
