@@ -134,6 +134,8 @@ def run_engine(inp: InvestmentInput) -> tuple[InvestmentMetrics, list[CashFlowYe
         irr_flows.append(annual_cf)
 
     irr = calculate_irr(irr_flows) or 0.0
+    # Guardrail: cap IRR at 300% to prevent display explosion from unrealistic inputs
+    irr = min(irr, 300.0)
     npv = calculate_npv(irr_flows, discount_rate=0.10)
 
     # ── ROI ───────────────────────────────────────────────────────────────────
