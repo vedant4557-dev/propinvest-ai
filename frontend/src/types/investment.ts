@@ -18,6 +18,8 @@ export interface InvestmentInput {
   city?: string;
   // V3.1 — optional, used for comparable valuation
   property_area_sqft?: number;
+  // V3.1 — optional rent growth rate for projection
+  rent_growth_rate?: number;
 }
 
 export interface InvestmentMetrics {
