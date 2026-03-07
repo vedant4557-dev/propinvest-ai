@@ -24,6 +24,8 @@ const DEFAULTS: InvestmentInput = {
   registration_cost_percent: 1,
   property_name: "",
   city: "",
+  property_area_sqft: 1000,
+  rent_growth_rate: 0,
 };
 
 type FieldConfig = {
@@ -39,11 +41,13 @@ type FieldConfig = {
 const FIELDS: FieldConfig[] = [
   { field: "property_purchase_price", label: "Property Price (₹)", min: 100_000, step: 100_000, group: "property" },
   { field: "down_payment",            label: "Down Payment (₹)",   min: 0, step: 100_000, group: "property" },
+  { field: "property_area_sqft",      label: "Property Area (sqft)", min: 1, max: 100_000, step: 50, group: "property" },
   { field: "expected_annual_appreciation", label: "Appreciation (%/yr)", min: -10, max: 30, step: 0.5, group: "property" },
   { field: "holding_period_years",    label: "Holding Period (yrs)", min: 1, max: 30, step: 1, group: "property" },
   { field: "loan_interest_rate",      label: "Loan Rate (%/yr)",   min: 0, max: 30, step: 0.1, group: "loan" },
   { field: "loan_tenure_years",       label: "Loan Tenure (yrs)",  min: 1, max: 30, step: 1, group: "loan" },
   { field: "expected_monthly_rent",   label: "Monthly Rent (₹)",   min: 0, step: 1_000, group: "rental" },
+  { field: "rent_growth_rate",        label: "Rent Growth (%/yr)", min: 0, max: 15, step: 0.5, group: "rental" },
   { field: "annual_maintenance_cost", label: "Annual Maintenance (₹)", min: 0, step: 1_000, group: "rental" },
   { field: "vacancy_rate",            label: "Vacancy Rate (%)",   min: 0, max: 50, step: 1, group: "rental" },
   { field: "investor_tax_slab",       label: "Tax Slab (%)",       min: 0, max: 42.74, step: 0.5, group: "india" },
