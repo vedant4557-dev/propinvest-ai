@@ -91,14 +91,21 @@ export function validateInvestmentInput(input: ValidatableInput): ValidationResu
     });
   }
 
-  // Rent vs price check (> 5% monthly is suspicious)
-  const rentToPrice = (rent * 12 / price) * 100;
-  if (rentToPrice > 5) {
+  // Rent vs price check — improved yield guardrail (Task 2)
+  const annualYield = (rent * 12 / price) * 100;
+  if (annualYield > 8) {
     warnings.push({
       field: "expected_monthly_rent",
-      message: `Rent-to-price ratio of ${rentToPrice.toFixed(1)}% is unusually high.`,
+      message: `Rental yield of ${annualYield.toFixed(1)}% is outside normal residential range (2–6%). Verify estimate.`,
       severity: "warning",
-      suggestion: "Verify rent expectations — typical yield is 3–4.5%.",
+      suggestion: "Typical gross yields for Indian residential are 2–5%. Premium locations up to 6%.",
+    });
+  } else if (annualYield < 1 && rent > 0) {
+    warnings.push({
+      field: "expected_monthly_rent",
+      message: `Rental yield of ${annualYield.toFixed(1)}% is very low. Verify monthly rent figure.`,
+      severity: "warning",
+      suggestion: "Expected yield below 1% may indicate rent is entered in incorrect units.",
     });
   }
   if (rent <= 0) {
