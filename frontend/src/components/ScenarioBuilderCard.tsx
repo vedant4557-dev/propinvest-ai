@@ -90,6 +90,14 @@ export function ScenarioBuilderCard({ inputs, metrics }: Props) {
                   {formatINR(s.annualCashFlow)}
                 </p>
               </div>
+              {"dscr" in s && (
+                <div>
+                  <p className="text-[10px] text-slate-400">DSCR</p>
+                  <p className={`text-xs font-medium ${(s as any).dscr >= 1 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {(s as any).dscr === 999 ? "N/A" : (s as any).dscr.toFixed(2)}x
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ))}
