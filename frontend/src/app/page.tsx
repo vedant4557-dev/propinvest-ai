@@ -34,6 +34,15 @@ import { SmartRecommendationCard } from "@/components/SmartRecommendationCard";
 import { MarketIntelligenceExtended } from "@/components/MarketIntelligenceExtended";
 import { ComparableValuationCard } from "@/components/ComparableValuationCard";
 import { LiquidityScoreCard } from "@/components/LiquidityScoreCard";
+// V3.1 Task 2–10 new components
+import { NegotiationPriceCard } from "@/components/NegotiationPriceCard";
+import { LoanOptimizationCard } from "@/components/LoanOptimizationCard";
+import { RentGrowthCard } from "@/components/RentGrowthCard";
+import { VacancyShockCard } from "@/components/VacancyShockCard";
+import { ExitOptimizationCard } from "@/components/ExitOptimizationCard";
+import { RiskIndexCard } from "@/components/RiskIndexCard";
+import { InflationReturnsCard } from "@/components/InflationReturnsCard";
+import { ScenarioBuilderCard } from "@/components/ScenarioBuilderCard";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -344,6 +353,14 @@ function SimulationTab({ result, inputs }: { result: AnalyzeInvestmentResponse; 
       )}
       {result.sensitivity && <SensitivityTable data={result.sensitivity} />}
       {result.stress_test && <StressTestCard data={result.stress_test} />}
+      {/* V3.1 — Vacancy Shock */}
+      <VacancyShockCard inputs={inputs} metrics={result.metrics} />
+      {/* V3.1 — Scenario Builder */}
+      <ScenarioBuilderCard inputs={inputs} metrics={result.metrics} />
+      {/* V3.1 — Rent Growth */}
+      <RentGrowthCard inputs={inputs} metrics={result.metrics} />
+      {/* V3.1 — Loan Optimizer */}
+      <LoanOptimizationCard inputs={inputs} metrics={result.metrics} />
       <BenchmarkComparisonCard propertyIRR={result.metrics.irr} />
     </div>
   );
@@ -354,18 +371,24 @@ function DealTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs
     <div className="space-y-4">
       <EnhancedDealScore metrics={result.metrics} dealAnalysis={result.deal_analysis} />
 
-      {/* Comparable valuation — new */}
+      {/* Comparable valuation */}
       <ComparableValuationCard
         propertyPrice={inputs.property_purchase_price}
         propertyAreaSqft={inputs.property_area_sqft ?? 0}
         city={inputs.city || ""}
       />
 
-      {/* Liquidity score — new */}
+      {/* Liquidity score */}
       <LiquidityScoreCard
         city={inputs.city || ""}
         propertyPrice={inputs.property_purchase_price}
       />
+
+      {/* V3.1 — Risk Index */}
+      <RiskIndexCard inputs={inputs} metrics={result.metrics} />
+
+      {/* V3.1 — Negotiation Price */}
+      <NegotiationPriceCard inputs={inputs} metrics={result.metrics} />
 
       {result.deal_analysis && (
         <>
@@ -383,6 +406,12 @@ function TaxTab({ result }: { result: AnalyzeInvestmentResponse }) {
   return (
     <div className="space-y-4">
       {result.tax_analysis && <TaxAnalysisCard data={result.tax_analysis} />}
+      {/* V3.1 — Inflation-adjusted returns */}
+      <InflationReturnsCard
+        nominalIRR={result.metrics.irr}
+        nominalROI={result.metrics.roi}
+        postTaxIRR={result.tax_analysis?.post_tax_irr}
+      />
     </div>
   );
 }
@@ -391,6 +420,8 @@ function AITab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: 
   return (
     <div className="space-y-4">
       <SmartRecommendationCard result={result} input={inputs} />
+      {/* V3.1 — Exit timing optimizer */}
+      <ExitOptimizationCard inputs={inputs} metrics={result.metrics} />
       <AISummary analysis={result.ai_analysis} />
     </div>
   );
