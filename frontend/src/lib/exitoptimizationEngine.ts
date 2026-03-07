@@ -51,12 +51,14 @@ function calcIRRAtYear(
   const futureValue = inp.propertyPrice * Math.pow(1 + inp.appreciation / 100, exitYear);
   const capitalGains = Math.max(0, futureValue - inp.propertyPrice);
   const cgTax = capitalGains * (exitYear >= 2 ? 0.20 : 0.30);
+  // Task 4: Transaction exit costs — brokerage 2% + legal/transfer 1% = 3%
+  const exitCosts = futureValue * 0.03;
 
   const paidMonths = Math.min(exitYear * 12, inp.loanTenureYears * 12);
   const remaining = r > 0 && n > paidMonths
     ? emi * (1 - Math.pow(1 + r, -(n - paidMonths))) / r
     : 0;
-  const netSale = futureValue - remaining - cgTax;
+  const netSale = futureValue - remaining - cgTax - exitCosts;
 
   const flows = [-inp.effectiveDown];
   let totalCF = -inp.effectiveDown;
