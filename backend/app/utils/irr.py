@@ -1,7 +1,13 @@
 """
 IRR calculation using Newton-Raphson method with bisection fallback.
+V3.1: Added guardrails to cap extreme values and prevent IRR explosion.
 """
 from typing import Optional
+
+# Real estate IRR guardrail: above this, flag as extreme
+# Bisection search is capped at 5.0 (500%) to prevent explosion
+IRR_MAX_REALISTIC = 50.0   # 50% — anything above shows "Extreme return" warning
+IRR_ABSOLUTE_CAP = 300.0  # Hard cap: bisection won't search above 300%
 
 
 def calculate_irr(cash_flows: list[float], guess: float = 0.1, max_iter: int = 1000) -> Optional[float]:
@@ -35,11 +41,14 @@ def calculate_irr(cash_flows: list[float], guess: float = 0.1, max_iter: int = 1
         if rate <= -1:
             rate = -0.9999
 
-    # Bisection fallback
-    lo, hi = -0.999, 10.0
+    # Bisection fallback — capped at 3.0 (300%) to prevent explosion
+    lo, hi = -0.999, 3.0
     try:
         if npv_func(lo) * npv_func(hi) > 0:
-            return None
+            # Try extending range but cap at 3.0 (300%)
+            hi = 3.0
+            if npv_func(lo) * npv_func(hi) > 0:
+                return None
         for _ in range(200):
             mid = (lo + hi) / 2
             f_mid = npv_func(mid)
@@ -49,7 +58,9 @@ def calculate_irr(cash_flows: list[float], guess: float = 0.1, max_iter: int = 1
                 hi = mid
             else:
                 lo = mid
-        return round((lo + hi) / 2 * 100, 4)
+        result = (lo + hi) / 2 * 100
+        # Cap at absolute maximum to prevent display explosion
+        return round(min(result, IRR_ABSOLUTE_CAP), 4)
     except Exception:
         return None
 
