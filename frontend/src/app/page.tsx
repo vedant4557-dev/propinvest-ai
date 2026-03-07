@@ -30,6 +30,10 @@ import { LocationScoreCard } from "@/components/LocationScoreCard";
 import { BenchmarkComparisonCard } from "@/components/BenchmarkComparisonCard";
 import { EnhancedDealScore } from "@/components/EnhancedDealScore";
 import { SmartRecommendationCard } from "@/components/SmartRecommendationCard";
+// V3.1 new components
+import { MarketIntelligenceExtended } from "@/components/MarketIntelligenceExtended";
+import { ComparableValuationCard } from "@/components/ComparableValuationCard";
+import { LiquidityScoreCard } from "@/components/LiquidityScoreCard";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -282,6 +286,12 @@ function OverviewTab({ result, inputs }: { result: AnalyzeInvestmentResponse; in
         userRent={inputs.expected_monthly_rent}
         userAppreciation={inputs.expected_annual_appreciation}
       />
+      {/* Extended market intelligence: supply/demand, cycle, rental benchmark */}
+      <MarketIntelligenceExtended
+        city={inputs.city || ""}
+        propertyAreaSqft={inputs.property_area_sqft ?? 0}
+        monthlyRent={inputs.expected_monthly_rent}
+      />
       <LocationScoreCard
         city={inputs.city || "India"}
         rentalYield={result.metrics.net_rental_yield}
@@ -343,6 +353,20 @@ function DealTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs
   return (
     <div className="space-y-4">
       <EnhancedDealScore metrics={result.metrics} dealAnalysis={result.deal_analysis} />
+
+      {/* Comparable valuation — new */}
+      <ComparableValuationCard
+        propertyPrice={inputs.property_purchase_price}
+        propertyAreaSqft={inputs.property_area_sqft ?? 0}
+        city={inputs.city || ""}
+      />
+
+      {/* Liquidity score — new */}
+      <LiquidityScoreCard
+        city={inputs.city || ""}
+        propertyPrice={inputs.property_purchase_price}
+      />
+
       {result.deal_analysis && (
         <>
           <DealScoreBadge deal={result.deal_analysis} />
