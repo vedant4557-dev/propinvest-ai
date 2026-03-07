@@ -11,6 +11,7 @@ export interface ComparableValuationResult {
   isUnderpriced: boolean;
   verdict: "Underpriced" | "Fair Value" | "Slightly Overpriced" | "Overpriced";
   verdictColor: "green" | "blue" | "yellow" | "red";
+  verdictSummary: string;              // e.g. "Underpriced by 4.8% vs market"
   propertyPricePerSqft: number;
   comparablesUsed: number;
 }
@@ -101,6 +102,14 @@ export function calculateComparableValuation(
     verdict = "Overpriced"; verdictColor = "red";
   }
 
+  const absDev = Math.abs(priceDeviationPercent);
+  const verdictSummary =
+    priceDeviationPercent < 0
+      ? `Underpriced by ${absDev.toFixed(1)}% vs market`
+      : priceDeviationPercent === 0
+      ? "Priced exactly at market"
+      : `Overpriced by ${absDev.toFixed(1)}% vs market`;
+
   return {
     avgPricePerSqft: Math.round(avgPricePerSqft),
     fairValueLow,
@@ -111,6 +120,7 @@ export function calculateComparableValuation(
     isUnderpriced,
     verdict,
     verdictColor,
+    verdictSummary,
     propertyPricePerSqft,
     comparablesUsed: comps.length,
   };
