@@ -22,7 +22,7 @@ interface PortfolioFormProps {
 }
 
 export function PortfolioForm({ onAnalyze, isLoading }: PortfolioFormProps) {
-  const [investments, setInvestments] = useState<InvestmentInput[]>([
+  const [investments, setInvestments] = useState<any[]>([
     { ...DEFAULT_INPUT },
   ]);
 
