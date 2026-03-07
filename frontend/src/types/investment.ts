@@ -16,6 +16,8 @@ export interface InvestmentInput {
   registration_cost_percent: number;
   property_name?: string;
   city?: string;
+  // V3.1 — optional, used for comparable valuation
+  property_area_sqft?: number;
 }
 
 export interface InvestmentMetrics {
