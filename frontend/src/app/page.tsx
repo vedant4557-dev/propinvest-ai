@@ -24,6 +24,12 @@ import { CashFlowTimeline } from "@/components/CashFlowTimeline";
 import { PortfolioDashboard } from "@/components/PortfolioDashboard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ExportPDF } from "@/components/ExportPDF";
+import { MarketBenchmarkCard } from "@/components/MarketBenchmarkCard";
+import { ValidationWarnings } from "@/components/ValidationWarnings";
+import { LocationScoreCard } from "@/components/LocationScoreCard";
+import { BenchmarkComparisonCard } from "@/components/BenchmarkComparisonCard";
+import { EnhancedDealScore } from "@/components/EnhancedDealScore";
+import { SmartRecommendationCard } from "@/components/SmartRecommendationCard";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -111,19 +117,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      {/* Header */}
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur px-6 py-3 dark:border-slate-800 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white text-sm font-bold">P</div>
             <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               PropInvest <span className="text-primary-500">AI</span>
-              <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3</span>
+              <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.1</span>
             </h1>
           </div>
-
           <div className="flex items-center gap-2">
-            {/* Mode switcher */}
             <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
               {(["single", "portfolio", "saved"] as Mode[]).map((m) => (
                 <button
@@ -139,7 +142,6 @@ export default function Home() {
                 </button>
               ))}
             </div>
-
             {result && mode === "single" && (
               <>
                 <button
@@ -165,35 +167,36 @@ export default function Home() {
           <SavedDealsPanel deals={deals} onLoad={handleLoadDeal} onRemove={remove} />
         ) : (
           <div className="grid gap-6 lg:grid-cols-5">
-            {/* Input sidebar */}
             <div className="lg:col-span-2">
-              <div className="sticky top-20 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-700">
-                  <h2 className="font-semibold text-slate-900 dark:text-slate-100">
-                    {mode === "single" ? "Investment Parameters" : "Portfolio Properties"}
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">India market defaults applied</p>
+              <div className="sticky top-20 space-y-4">
+                <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                  <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+                    <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                      {mode === "single" ? "Investment Parameters" : "Portfolio Properties"}
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">India market defaults applied</p>
+                  </div>
+                  <div className="p-5">
+                    {mode === "single" ? (
+                      <InputForm onAnalyze={handleAnalyze} isLoading={loading} />
+                    ) : (
+                      <PortfolioForm onAnalyze={handlePortfolioAnalyze} isLoading={loading} />
+                    )}
+                  </div>
                 </div>
-                <div className="p-5">
-                  {mode === "single" ? (
-                    <InputForm onAnalyze={handleAnalyze} isLoading={loading} />
-                  ) : (
-                    <PortfolioForm onAnalyze={handlePortfolioAnalyze} isLoading={loading} />
-                  )}
-                </div>
+                {inputs && mode === "single" && (
+                  <ValidationWarnings input={inputs} />
+                )}
               </div>
             </div>
 
-            {/* Results */}
             <div className="lg:col-span-3">
               {error && (
                 <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-200">
                   {error}
                 </div>
               )}
-
               {loading && <LoadingState />}
-
               {!loading && mode === "single" && result && inputs && (
                 <SingleResultView
                   result={result}
@@ -203,11 +206,9 @@ export default function Home() {
                   reportRef={reportRef}
                 />
               )}
-
               {!loading && mode === "portfolio" && portfolioResult && (
                 <PortfolioResultView data={portfolioResult} />
               )}
-
               {!loading && !result && !portfolioResult && !error && (
                 <EmptyState mode={mode} />
               )}
@@ -218,8 +219,6 @@ export default function Home() {
     </div>
   );
 }
-
-// ─── Sub-views ────────────────────────────────────────────────────────────────
 
 function SingleResultView({
   result, inputs, activeTab, onTabChange, reportRef,
@@ -232,7 +231,6 @@ function SingleResultView({
 }) {
   return (
     <div className="space-y-4">
-      {/* Tab bar */}
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
         {TABS.map((t) => (
           <button
@@ -248,13 +246,12 @@ function SingleResultView({
           </button>
         ))}
       </div>
-
       <div ref={reportRef} className="space-y-4">
-        {activeTab === "overview" && <OverviewTab result={result} inputs={inputs} />}
+        {activeTab === "overview"   && <OverviewTab result={result} inputs={inputs} />}
         {activeTab === "simulation" && <SimulationTab result={result} inputs={inputs} />}
-        {activeTab === "deal" && <DealTab result={result} inputs={inputs} />}
-        {activeTab === "tax" && <TaxTab result={result} />}
-        {activeTab === "ai" && <AITab result={result} />}
+        {activeTab === "deal"       && <DealTab result={result} inputs={inputs} />}
+        {activeTab === "tax"        && <TaxTab result={result} />}
+        {activeTab === "ai"         && <AITab result={result} inputs={inputs} />}
       </div>
     </div>
   );
@@ -265,6 +262,19 @@ function OverviewTab({ result, inputs }: { result: AnalyzeInvestmentResponse; in
     <div className="space-y-4">
       <KPICards metrics={result.metrics} taxAnalysis={result.tax_analysis} />
       <RiskBadge risk={result.risk} />
+      <MarketBenchmarkCard
+        city={inputs.city || ""}
+        propertyPrice={inputs.property_purchase_price}
+        userRent={inputs.expected_monthly_rent}
+        userAppreciation={inputs.expected_annual_appreciation}
+      />
+      <LocationScoreCard
+        city={inputs.city || "India"}
+        rentalYield={result.metrics.net_rental_yield}
+        appreciation={inputs.expected_annual_appreciation}
+        dscr={result.metrics.dscr}
+        irr={result.metrics.irr}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
           <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Annual Cash Flow</h3>
@@ -310,6 +320,7 @@ function SimulationTab({ result, inputs }: { result: AnalyzeInvestmentResponse; 
       )}
       {result.sensitivity && <SensitivityTable data={result.sensitivity} />}
       {result.stress_test && <StressTestCard data={result.stress_test} />}
+      <BenchmarkComparisonCard propertyIRR={result.metrics.irr} />
     </div>
   );
 }
@@ -317,6 +328,7 @@ function SimulationTab({ result, inputs }: { result: AnalyzeInvestmentResponse; 
 function DealTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: InvestmentInput }) {
   return (
     <div className="space-y-4">
+      <EnhancedDealScore metrics={result.metrics} dealAnalysis={result.deal_analysis} />
       {result.deal_analysis && (
         <>
           <DealScoreBadge deal={result.deal_analysis} />
@@ -337,9 +349,10 @@ function TaxTab({ result }: { result: AnalyzeInvestmentResponse }) {
   );
 }
 
-function AITab({ result }: { result: AnalyzeInvestmentResponse }) {
+function AITab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: InvestmentInput }) {
   return (
     <div className="space-y-4">
+      <SmartRecommendationCard result={result} input={inputs} />
       <AISummary analysis={result.ai_analysis} />
     </div>
   );
