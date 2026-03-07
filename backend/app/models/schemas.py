@@ -200,6 +200,7 @@ class AnalyzeInvestmentResponse(BaseModel):
     deal_analysis: Optional[DealAnalysis] = None
     stress_test: Optional[StressTestResult] = None
     cash_flow_timeline: list[CashFlowYear] = []
+    input_warnings: list[dict] = []  # V3.1: Reality check warnings
 
 
 # ─── Portfolio ────────────────────────────────────────────────────────────────
