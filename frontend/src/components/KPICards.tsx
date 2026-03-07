@@ -79,7 +79,8 @@ export function KPICards({ metrics, taxAnalysis }: KPICardsProps) {
       label: "Break-even",
       value: formatPercent(metrics.break_even_occupancy, 1),
       sub: "occupancy needed",
-      hint: metrics.break_even_occupancy <= 80 ? "Low risk" : "High risk",
+      hint: metrics.break_even_occupancy <= 80 ? "Low risk — good buffer" : "High risk — thin buffer",
+      tooltip: `Min occupancy to cover EMI (₹${Math.round(metrics.emi).toLocaleString("en-IN")}/mo) + maintenance. Formula: (EMI + Maintenance) / Gross Rent.`,
       positive: metrics.break_even_occupancy <= 80,
     },
     {
@@ -130,6 +131,11 @@ export function KPICards({ metrics, taxAnalysis }: KPICardsProps) {
           </p>
           {card.hint && (
             <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{card.hint}</p>
+          )}
+          {"tooltip" in card && card.tooltip && (
+            <p className="mt-1 text-[10px] text-slate-300 dark:text-slate-600 leading-tight" title={(card as any).tooltip}>
+              ℹ {(card as any).tooltip}
+            </p>
           )}
         </div>
       ))}
