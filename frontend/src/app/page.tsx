@@ -43,6 +43,10 @@ import { ExitOptimizationCard } from "@/components/ExitOptimizationCard";
 import { RiskIndexCard } from "@/components/RiskIndexCard";
 import { InflationReturnsCard } from "@/components/InflationReturnsCard";
 import { ScenarioBuilderCard } from "@/components/ScenarioBuilderCard";
+// V3.1 Task 6–15 new components
+import { AdvancedMetricsCard } from "@/components/AdvancedMetricsCard";
+import { RefinanceCard } from "@/components/RefinanceCard";
+import { DealComparisonTable } from "@/components/DealComparisonTable";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -177,7 +181,14 @@ export default function Home() {
 
       <main className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
         {mode === "saved" ? (
-          <SavedDealsPanel deals={deals} onLoad={handleLoadDeal} onRemove={remove} />
+          <div className="space-y-6">
+            <SavedDealsPanel deals={deals} onLoad={handleLoadDeal} onRemove={remove} />
+            {/* Task 13 — Deal Comparison Table */}
+            <DealComparisonTable
+              deals={deals}
+              onLoad={(deal) => handleLoadDeal(deal.input, deal.result)}
+            />
+          </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-5">
             <div className="lg:col-span-2">
@@ -371,6 +382,14 @@ function DealTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs
     <div className="space-y-4">
       <EnhancedDealScore metrics={result.metrics} dealAnalysis={result.deal_analysis} />
 
+      {/* V3.1 Tasks 6/7/8 — Advanced Metrics */}
+      <AdvancedMetricsCard
+        inputs={inputs}
+        metrics={result.metrics}
+        cashFlowTimeline={result.cash_flow_timeline}
+        taxAnalysis={result.tax_analysis}
+      />
+
       {/* Comparable valuation */}
       <ComparableValuationCard
         propertyPrice={inputs.property_purchase_price}
@@ -384,7 +403,7 @@ function DealTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs
         propertyPrice={inputs.property_purchase_price}
       />
 
-      {/* V3.1 — Risk Index */}
+      {/* V3.1 — Risk Index with improvements */}
       <RiskIndexCard inputs={inputs} metrics={result.metrics} />
 
       {/* V3.1 — Negotiation Price */}
@@ -422,6 +441,8 @@ function AITab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: 
       <SmartRecommendationCard result={result} input={inputs} />
       {/* V3.1 — Exit timing optimizer */}
       <ExitOptimizationCard inputs={inputs} metrics={result.metrics} />
+      {/* V3.1 Task 9 — Refinance simulation */}
+      <RefinanceCard inputs={inputs} metrics={result.metrics} />
       <AISummary analysis={result.ai_analysis} />
     </div>
   );
