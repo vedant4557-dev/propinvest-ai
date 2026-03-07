@@ -46,6 +46,12 @@ def _portfolio_monte_carlo(
             apprec = inp.expected_annual_appreciation + apprec_std * prop_z
             rent = inp.expected_monthly_rent * (1 + 0.12 * idio_z)
 
+            # V3.1 overflow fix: clamp randomized appreciation to safe range.
+            # apprec_std can be up to 17.5 (when user sets 50% appreciation)
+            # and prop_z can reach ±3.7 from Box-Muller → apprec up to 115%.
+            # (1 + 1.15)^30 = 1.4e9 per property → feeds into IRR overflow path.
+            apprec = max(-10.0, min(apprec, 25.0))
+
             loan = inp.property_purchase_price - inp.down_payment
             if inp.loan_interest_rate > 0:
                 r = inp.loan_interest_rate / 100 / 12
@@ -56,7 +62,15 @@ def _portfolio_monte_carlo(
 
             eff_rent = rent * 12 * (1 - inp.vacancy_rate / 100)
             annual_cf = eff_rent - emi * 12 - inp.annual_maintenance_cost
-            fv = inp.property_purchase_price * (1 + apprec / 100) ** inp.holding_period_years
+
+            # Guard future_value against overflow before adding to portfolio total
+            apprec_rate = apprec / 100
+            try:
+                fv = inp.property_purchase_price * (1.0 + apprec_rate) ** inp.holding_period_years
+                if not math.isfinite(fv):
+                    fv = inp.property_purchase_price
+            except OverflowError:
+                fv = inp.property_purchase_price
 
             for yr in range(1, inp.holding_period_years + 1):
                 if yr <= len(portfolio_cf) - 1:
