@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { InvestmentInput, InvestmentMetrics } from "@/types/investment";
+import { Tooltip } from "@/lib/glossary";
 
 // ─── Inlined engine ───────────────────────────────────────────────────────
 
@@ -120,17 +121,23 @@ export function AppreciationValidationCard({ inputs, metrics }: Props) {
       {/* Comparison row */}
       <div className="grid grid-cols-3 gap-3 mb-3">
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3 text-center">
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Your Assumption</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-center gap-0.5">Your Assumption
+            <Tooltip content="The annual property appreciation rate you entered. This is how much you expect the property price to grow each year." position="bottom" />
+          </p>
           <p className={`text-2xl font-black ${warnLevel === "ok" ? "text-emerald-600 dark:text-emerald-400" : warnLevel === "caution" ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>{user}%</p>
           <p className="text-[10px] text-slate-400 mt-0.5">per year</p>
         </div>
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3 text-center">
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Historical Avg</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-center gap-0.5">Historical Avg
+            <Tooltip content="The long-run average annual appreciation for comparable cities and tiers, based on historical Indian real estate data. A useful sanity check for your assumption." position="bottom" />
+          </p>
           <p className="text-2xl font-black text-slate-800 dark:text-slate-100">{avg}%</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Tier {tier} city avg</p>
         </div>
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3 text-center">
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Historical Range</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-center gap-0.5">Historical Range
+            <Tooltip content="The typical low-to-high band of annual appreciation observed in this city tier over the past decade. Your assumption is aggressive if it sits above the top of this range." position="bottom" />
+          </p>
           <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{low}–{high}%</p>
           <p className="text-[10px] text-slate-400 mt-0.5">typical band</p>
         </div>
@@ -151,7 +158,10 @@ export function AppreciationValidationCard({ inputs, metrics }: Props) {
       </div>
 
       {/* IRR Sensitivity Table */}
-      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">IRR at Different Appreciation Rates</p>
+      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-1">
+        IRR at Different Appreciation Rates
+        <Tooltip content="Shows how your IRR changes as the appreciation assumption changes. If the 0% row gives a negative IRR, the deal is 100% reliant on price growth to be profitable." position="right" maxWidth={280} />
+      </p>
       <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 dark:bg-slate-700/50">
