@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { InvestmentInput, InvestmentMetrics } from "@/types/investment";
+import { Tooltip } from "@/lib/glossary";
 
 // ─── Inlined engine ────────────────────────────────────────────────────────
 
@@ -144,14 +145,18 @@ export function RateStressCard({ inputs, metrics }: Props) {
       {/* DSCR breakeven highlight */}
       <div className="mt-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-4">
         <div className="flex-1">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">DSCR Breakeven Rate</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 flex items-center gap-0.5">DSCR Breakeven Rate
+            <Tooltip content="The interest rate at which your rental income exactly equals your loan EMI — DSCR hits 1.0x. Above this rate, rent no longer covers the loan payment and you must fund the monthly shortfall from savings." />
+          </p>
           <p className={`text-2xl font-black mt-0.5 ${maxAbsorbable <= 1 ? "text-rose-600 dark:text-rose-400" : maxAbsorbable <= 2 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
             {dscrBreakeven >= inputs.loan_interest_rate + 20 ? "Stress-proof" : `${dscrBreakeven.toFixed(1)}%`}
           </p>
           <p className="text-[10px] text-slate-400 mt-0.5">rent stops covering EMI above this rate</p>
         </div>
         <div className="text-center">
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Max Absorbable Hike</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center justify-center gap-0.5">Max Absorbable Hike
+            <Tooltip content="How many percentage points the interest rate can rise before rent no longer covers your EMI. This is your rate risk buffer." position="top" />
+          </p>
           <p className={`text-xl font-bold mt-0.5 ${maxAbsorbable > 2 ? "text-emerald-600 dark:text-emerald-400" : maxAbsorbable > 1 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>
             +{maxAbsorbable.toFixed(1)}pp
           </p>
@@ -163,8 +168,17 @@ export function RateStressCard({ inputs, metrics }: Props) {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 dark:bg-slate-700/50">
             <tr>
-              {["Scenario", "Rate", "Monthly EMI", "Annual CF", "DSCR", "IRR Impact"].map(h => (
-                <th key={h} className="py-2.5 px-3 text-xs font-medium text-slate-500 text-center first:text-left">{h}</th>
+              {[
+                { h: "Scenario", tip: null },
+                { h: "Rate", tip: "The annual home loan interest rate for this scenario." },
+                { h: "Monthly EMI", tip: "Equated Monthly Instalment — your loan payment at this rate. EMI rises when rates increase." },
+                { h: "Annual CF", tip: "Annual Cash Flow = Rent − EMI − Maintenance. Negative means you top up from savings each year." },
+                { h: "DSCR", tip: "Debt Service Coverage Ratio = Annual Rent ÷ Annual EMI. Below 1.0x (red) means rent no longer covers loan payments." },
+                { h: "IRR Impact", tip: "How much your overall IRR changes vs the base case, in percentage points (pp)." },
+              ].map(({ h, tip }) => (
+                <th key={h} className="py-2.5 px-3 text-xs font-medium text-slate-500 text-center first:text-left">
+                  <span className="inline-flex items-center gap-0.5 justify-center">{h}{tip && <Tooltip content={tip} position="bottom" />}</span>
+                </th>
               ))}
             </tr>
           </thead>
