@@ -55,6 +55,10 @@ import { YieldSpreadCard } from "@/components/YieldSpreadCard";
 import { DealFailureCard } from "@/components/DealFailureCard";
 // V3.2 — UX upgrades
 import { SmartSummaryBanner } from "@/components/SmartSummaryBanner";
+// V3.3 — New features: Renovation, Wealth Builder, AI Memo
+import { RenovationValueAddCard } from "@/components/RenovationValueAddCard";
+import { WealthBuilderCard } from "@/components/WealthBuilderCard";
+import { AIInvestmentMemo } from "@/components/AIInvestmentMemo";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -64,7 +68,7 @@ import type {
 } from "@/types/investment";
 
 type Mode = "single" | "portfolio" | "saved";
-type Tab = "overview" | "simulation" | "tax" | "deal" | "ai";
+type Tab = "overview" | "simulation" | "tax" | "deal" | "ai" | "wealth";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview",   label: "Overview" },
@@ -72,6 +76,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "deal",       label: "Deal Analysis" },
   { id: "tax",        label: "Tax & Returns" },
   { id: "ai",         label: "AI Insights" },
+  { id: "wealth",     label: "🏦 Wealth" },
 ];
 
 export default function Home() {
@@ -291,6 +296,7 @@ function SingleResultView({
         {activeTab === "deal"       && <DealTab result={result} inputs={inputs} />}
         {activeTab === "tax"        && <TaxTab result={result} />}
         {activeTab === "ai"         && <AITab result={result} inputs={inputs} />}
+        {activeTab === "wealth"     && <WealthTab result={result} inputs={inputs} />}
       </div>
     </div>
   );
@@ -472,11 +478,29 @@ function AITab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: 
         cashFlowTimeline={result.cash_flow_timeline}
         targetIRR={8}
       />
+      {/* V3.3 — Renovation Value-Add */}
+      <RenovationValueAddCard inputs={inputs} metrics={result.metrics} />
       {/* V3.1 — Exit timing optimizer */}
       <ExitOptimizationCard inputs={inputs} metrics={result.metrics} />
       {/* V3.1 Task 9 — Refinance simulation */}
       <RefinanceCard inputs={inputs} metrics={result.metrics} />
       <AISummary analysis={result.ai_analysis} />
+    </div>
+  );
+}
+
+function WealthTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: InvestmentInput }) {
+  return (
+    <div className="space-y-4">
+      {/* V3.3 — 20-year wealth builder + FIRE projection */}
+      <WealthBuilderCard inputs={inputs} metrics={result.metrics} />
+      {/* V3.3 — AI Investment Memo */}
+      <AIInvestmentMemo
+        inputs={inputs}
+        metrics={result.metrics}
+        taxAnalysis={result.tax_analysis}
+        aiAnalysis={result.ai_analysis}
+      />
     </div>
   );
 }
