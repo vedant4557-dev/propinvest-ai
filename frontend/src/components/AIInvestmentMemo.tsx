@@ -217,15 +217,11 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
     setErrorMsg("");
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const BACKEND = process.env.NEXT_PUBLIC_API_URL || "https://propinvest-ai-production.up.railway.app";
+      const response = await fetch(`${BACKEND}/generate-memo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 2000,
-          stream: true,
-          messages: [{ role: "user", content: buildPrompt() }],
-        }),
+        body: JSON.stringify({ prompt: buildPrompt() }),
       });
 
       if (!response.ok) throw new Error(`API error ${response.status}`);
