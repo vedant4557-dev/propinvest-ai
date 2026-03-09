@@ -115,7 +115,7 @@ export function RateStressCard({ inputs, metrics }: Props) {
         : `Good resilience. Debt coverage holds up to ${dscrBreakeven.toFixed(1)}% — can absorb typical rate cycles.`;
 
     return { scenarios, dscrBreakeven, maxAbsorbable, interpretation, base };
-  }, [inputs, metrics, loanAmount, effectiveDown]);
+  }, [inputs, loanAmount, effectiveDown]);
 
   const { scenarios, dscrBreakeven, maxAbsorbable, interpretation } = result;
   const anyFails = scenarios.some(s => s.dscrFails);
