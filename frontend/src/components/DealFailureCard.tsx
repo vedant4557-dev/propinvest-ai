@@ -240,7 +240,7 @@ export function DealFailureCard({ inputs, metrics, cashFlowTimeline, targetIRR =
       : null;
 
     return { conditions, failCount, fragility, fragColor, fragScore, summary, weakest };
-  }, [inputs, metrics, cashFlowTimeline, targetIRR, loanAmount, effectiveDown]);
+  }, [inputs, cashFlowTimeline, targetIRR, loanAmount, effectiveDown]);
 
   const { conditions, failCount, fragility, fragColor, fragScore, summary, weakest } = result;
 
