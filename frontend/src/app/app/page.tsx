@@ -67,6 +67,9 @@ import { NiftyComparatorCard } from "@/components/NiftyComparatorCard";
 import { useShareURL } from "@/hooks/useShareURL";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
+import { useAuth } from "@/hooks/useAuth";
+import { AuthModal } from "@/components/AuthModal";
+import { UserMenu, SignInButton } from "@/components/UserMenu";
 import type {
   InvestmentInput,
   AnalyzeInvestmentResponse,
@@ -97,7 +100,10 @@ export default function Home() {
   const [showExamples, setShowExamples]   = useState(true);
   const [sharedLoaded, setSharedLoaded]   = useState(false);
   const reportRef                         = useRef<HTMLDivElement | null>(null);
-  const { deals, save, remove }           = useDeals();
+  const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  const { deals, save, remove, syncing, isCloud, limitReached } = useDeals(user);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authReason, setAuthReason]       = useState<"save_limit" | "general">("general");
   const { getSharedInput, clearSharedParam } = useShareURL();
 
   // Auto-load shared deal from URL on first render
@@ -146,11 +152,16 @@ export default function Home() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (result && inputs) {
-      save(inputs, result);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
+      const { limitReached: hit } = await save(inputs, result);
+      if (hit) {
+        setAuthReason("save_limit");
+        setShowAuthModal(true);
+      } else {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2000);
+      }
     }
   };
 
@@ -208,29 +219,55 @@ export default function Home() {
               <>
                 <button
                   onClick={handleSave}
-                  title="Save Deal"
+                  title={isCloud ? "Save to cloud" : limitReached ? "Limit reached — sign in for unlimited" : "Save Deal"}
                   className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
                     saveSuccess
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : limitReached
+                      ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                   }`}
                 >
-                  <span className="hidden sm:inline">{saveSuccess ? "✓ Saved" : "Save"}</span>
-                  <span className="sm:hidden">{saveSuccess ? "✓" : "💾"}</span>
+                  <span className="hidden sm:inline">
+                    {saveSuccess ? "✓ Saved" : limitReached ? "Sign in to Save" : isCloud ? "☁ Save" : "Save"}
+                  </span>
+                  <span className="sm:hidden">{saveSuccess ? "✓" : limitReached ? "⚠" : "💾"}</span>
                 </button>
                 <ShareButton inputs={inputs} />
                 <span className="hidden sm:block"><ExportPDF result={result} reportRef={reportRef} /></span>
               </>
             )}
             <ThemeToggle />
+            {/* Auth */}
+            {!authLoading && (
+              user
+                ? <UserMenu user={user} dealCount={deals.length} syncing={syncing} onSignOut={signOut} onSignIn={() => { setAuthReason("general"); setShowAuthModal(true); }} />
+                : <SignInButton onClick={() => { setAuthReason("general"); setShowAuthModal(true); }} />
+            )}
           </div>
         </div>
       </header>
 
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModal
+          reason={authReason}
+          onGoogleSignIn={() => { setShowAuthModal(false); signInWithGoogle(); }}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
+
       <main className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
         {mode === "saved" ? (
           <div className="space-y-6">
-            <SavedDealsPanel deals={deals} onLoad={handleLoadDeal} onRemove={remove} />
+            <SavedDealsPanel
+              deals={deals}
+              onLoad={handleLoadDeal}
+              onRemove={remove}
+              isCloud={isCloud}
+              syncing={syncing}
+              onSignIn={() => { setAuthReason("general"); setShowAuthModal(true); }}
+            />
             {/* Task 13 — Deal Comparison Table */}
             <DealComparisonTable
               deals={deals}
