@@ -53,6 +53,8 @@ import { AppreciationValidationCard } from "@/components/AppreciationValidationC
 import { RateStressCard } from "@/components/RateStressCard";
 import { YieldSpreadCard } from "@/components/YieldSpreadCard";
 import { DealFailureCard } from "@/components/DealFailureCard";
+// V3.2 — UX upgrades
+import { SmartSummaryBanner } from "@/components/SmartSummaryBanner";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -261,6 +263,13 @@ function SingleResultView({
 }) {
   return (
     <div className="space-y-4">
+      {/* V3.2 — Deal-at-a-glance banner */}
+      <SmartSummaryBanner
+        inputs={inputs}
+        metrics={result.metrics}
+        taxAnalysis={result.tax_analysis}
+        dealScore={result.deal_analysis?.deal_score ?? null}
+      />
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
         {TABS.map((t) => (
           <button
