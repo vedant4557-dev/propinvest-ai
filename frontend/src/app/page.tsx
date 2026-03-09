@@ -175,7 +175,7 @@ export default function Home() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white text-sm font-bold">P</div>
             <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               PropInvest <span className="text-primary-500">AI</span>
-              <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.1</span>
+              <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.4</span>
             </h1>
           </div>
           <div className="flex items-center gap-2">
