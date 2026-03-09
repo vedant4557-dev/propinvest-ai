@@ -340,7 +340,7 @@ export function NiftyComparatorCard({ inputs, metrics, taxAnalysis }: Props) {
             <Tooltip content="What real estate cannot offer compared to liquid alternatives." />
           </p>
           <ul className="space-y-1 text-[10px] text-slate-600 dark:text-slate-300">
-            <li className="flex gap-1"><span className="text-rose-500">✗</span> Illiquid — can't sell in a day</li>
+            <li className="flex gap-1"><span className="text-rose-500">✗</span> Illiquid &mdash; can&apos;t sell in a day</li>
             <li className="flex gap-1"><span className="text-rose-500">✗</span> High transaction costs (8–9%)</li>
             <li className="flex gap-1"><span className="text-rose-500">✗</span> Tenant/maintenance headaches</li>
             <li className="flex gap-1"><span className="text-rose-500">✗</span> LTCG on sale (12.5%+)</li>
