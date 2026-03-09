@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { InvestmentInput, InvestmentMetrics, CashFlowYear } from "@/types/investment";
+import { Tooltip } from "@/lib/glossary";
 
 // ─── Inlined engine ────────────────────────────────────────────────────────
 
@@ -65,9 +66,10 @@ interface ConditionRowProps {
   isSafe: boolean;
   margin: string;
   explanation: string;
+  tip?: string;
 }
 
-function ConditionRow({ icon, label, failValue, assumption, isSafe, margin, explanation }: ConditionRowProps) {
+function ConditionRow({ icon, label, failValue, assumption, isSafe, margin, explanation, tip }: ConditionRowProps) {
   return (
     <div className={`rounded-xl border p-3.5 ${
       isSafe
@@ -80,7 +82,10 @@ function ConditionRow({ icon, label, failValue, assumption, isSafe, margin, expl
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{icon} {label}</span>
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-0.5">
+              {icon} {label}
+              {tip && <Tooltip content={tip} position="top" maxWidth={280} />}
+            </span>
             <span className={`text-sm font-black ${isSafe ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
               {failValue}
             </span>
@@ -169,6 +174,7 @@ export function DealFailureCard({ inputs, metrics, cashFlowTimeline, targetIRR =
           ? `+${apprecMargin.toFixed(1)}pp buffer above threshold`
           : `⚠ Below required level — IRR target not met at current assumption`,
         explanation: `Property must appreciate ≥ ${minApprec.toFixed(1)}%/yr to achieve ${targetIRR}% IRR.`,
+        tip: `The minimum annual price appreciation this property needs to hit your ${targetIRR}% IRR target. If actual appreciation falls below this, your investment underperforms the target.`,
       },
       {
         icon: "🏦",
@@ -180,6 +186,7 @@ export function DealFailureCard({ inputs, metrics, cashFlowTimeline, targetIRR =
           ? `+${rateMargin.toFixed(1)}pp absorbable before rent < EMI`
           : `⚠ Current rate already above DSCR breakeven`,
         explanation: "Rental income stops covering loan EMI above this rate.",
+        tip: "The maximum floating interest rate at which your rent still covers the EMI (DSCR ≥ 1.0). Indian home loans are floating rate — RBI can raise rates by 1–2pp in a tightening cycle.",
       },
       {
         icon: "🏚",
@@ -191,6 +198,7 @@ export function DealFailureCard({ inputs, metrics, cashFlowTimeline, targetIRR =
           ? `${vacancyMargin}pp vacancy buffer before negative cash flow`
           : `⚠ Already cash-flow negative at current vacancy`,
         explanation: "Annual cash flow turns negative when vacancy exceeds this level.",
+        tip: "The maximum percentage of the year the property can sit vacant before your annual cash flow turns negative. Indian residential average is 5–10% vacancy.",
       },
       {
         icon: "📅",
@@ -202,6 +210,7 @@ export function DealFailureCard({ inputs, metrics, cashFlowTimeline, targetIRR =
           ? `${holdMargin} extra year${holdMargin !== 1 ? "s" : ""} of compounding beyond breakeven`
           : `⚠ Exit is planned before equity recovery point`,
         explanation: `Selling before year ${minHold} may result in a loss after acquisition costs and taxes.`,
+        tip: "The minimum number of years you must hold to recover your initial capital. Selling too early means acquisition costs (stamp duty, brokerage) eat into returns — real estate needs time to compound.",
       },
     ];
 
@@ -265,7 +274,10 @@ export function DealFailureCard({ inputs, metrics, cashFlowTimeline, targetIRR =
       {/* Fragility score bar */}
       <div className="mt-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 px-4 py-3">
         <div className="flex justify-between items-center mb-1.5">
-          <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Deal Fragility Score</p>
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-0.5">
+            Deal Fragility Score
+            <Tooltip content="A composite score (0–100) measuring how close this deal is to its failure conditions. 0 = robust, 100 = all conditions are failing. Combines the number of failed conditions and the thinness of remaining margins." />
+          </p>
           <p className={`text-sm font-bold ${fragText[fragColor]}`}>{fragScore}/100</p>
         </div>
         <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
