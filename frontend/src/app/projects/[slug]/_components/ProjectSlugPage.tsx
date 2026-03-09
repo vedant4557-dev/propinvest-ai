@@ -20,7 +20,6 @@ interface Props {
 
 export default function ProjectPage({ params }: Props) {
   const project = getProjectBySlug(params.slug);
-  const { getShareURL } = useShareURL();
   const router = useRouter();
 
   if (!project) {
