@@ -47,6 +47,12 @@ import { ScenarioBuilderCard } from "@/components/ScenarioBuilderCard";
 import { AdvancedMetricsCard } from "@/components/AdvancedMetricsCard";
 import { RefinanceCard } from "@/components/RefinanceCard";
 import { DealComparisonTable } from "@/components/DealComparisonTable";
+// V3.2 — Institutional underwriting features
+import { IncomeValuationCard } from "@/components/IncomeValuationCard";
+import { AppreciationValidationCard } from "@/components/AppreciationValidationCard";
+import { RateStressCard } from "@/components/RateStressCard";
+import { YieldSpreadCard } from "@/components/YieldSpreadCard";
+import { DealFailureCard } from "@/components/DealFailureCard";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -364,6 +370,8 @@ function SimulationTab({ result, inputs }: { result: AnalyzeInvestmentResponse; 
       )}
       {result.sensitivity && <SensitivityTable data={result.sensitivity} />}
       {result.stress_test && <StressTestCard data={result.stress_test} />}
+      {/* V3.2 — Floating Rate Stress (DSCR at +1/+2/+3% rate) */}
+      <RateStressCard inputs={inputs} metrics={result.metrics} />
       {/* V3.1 — Vacancy Shock */}
       <VacancyShockCard inputs={inputs} metrics={result.metrics} />
       {/* V3.1 — Scenario Builder */}
@@ -381,6 +389,15 @@ function DealTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs
   return (
     <div className="space-y-4">
       <EnhancedDealScore metrics={result.metrics} dealAnalysis={result.deal_analysis} />
+
+      {/* V3.2 — Income Approach Valuation (cap rate, income fair value) */}
+      <IncomeValuationCard inputs={inputs} metrics={result.metrics} />
+
+      {/* V3.2 — Appreciation Assumption Validator */}
+      <AppreciationValidationCard inputs={inputs} metrics={result.metrics} />
+
+      {/* V3.2 — Yield Spread vs Market */}
+      <YieldSpreadCard inputs={inputs} metrics={result.metrics} />
 
       {/* V3.1 Tasks 6/7/8 — Advanced Metrics */}
       <AdvancedMetricsCard
@@ -439,6 +456,13 @@ function AITab({ result, inputs }: { result: AnalyzeInvestmentResponse; inputs: 
   return (
     <div className="space-y-4">
       <SmartRecommendationCard result={result} input={inputs} />
+      {/* V3.2 — Deal Failure Conditions */}
+      <DealFailureCard
+        inputs={inputs}
+        metrics={result.metrics}
+        cashFlowTimeline={result.cash_flow_timeline}
+        targetIRR={8}
+      />
       {/* V3.1 — Exit timing optimizer */}
       <ExitOptimizationCard inputs={inputs} metrics={result.metrics} />
       {/* V3.1 Task 9 — Refinance simulation */}
