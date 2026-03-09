@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { InvestmentInput, InvestmentMetrics } from "@/types/investment";
+import { Tooltip } from "@/lib/glossary";
 
 // ─── Inlined city yield benchmarks ────────────────────────────────────────
 
@@ -134,12 +135,15 @@ export function YieldSpreadCard({ inputs, metrics }: Props) {
       {/* Yield trio */}
       <div className="mt-4 grid grid-cols-3 gap-3">
         {[
-          { label: "Property Gross Yield", value: grossYield, note: "before expenses", color: verdict.color },
-          { label: "Property Net Yield",   value: netYield,   note: "after expenses",  color: "slate" },
-          { label: "Market Yield (city)",  value: mktMid,     note: `range: ${bench.low}–${bench.high}%`, color: "slate" },
+          { label: "Property Gross Yield", value: grossYield, note: "before expenses", color: verdict.color, tip: "Annual rent ÷ property price. Raw rental income return before vacancy, maintenance deductions, or taxes." },
+          { label: "Property Net Yield",   value: netYield,   note: "after expenses",  color: "slate",        tip: "Annual rent minus vacancy and maintenance costs, divided by property price. The actual income return after operational costs." },
+          { label: "Market Yield (city)",  value: mktMid,     note: `range: ${bench.low}–${bench.high}%`, color: "slate", tip: "The midpoint of typical rental yields for similar properties in this city. Used as a benchmark to assess relative value." },
         ].map(item => (
           <div key={item.label} className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3 text-center">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1">{item.label}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-center gap-0.5">
+              {item.label}
+              <Tooltip content={item.tip} position="bottom" />
+            </p>
             <p className={`text-2xl font-black ${
               item.color === "emerald" ? "text-emerald-600 dark:text-emerald-400" :
               item.color === "sky"     ? "text-sky-600 dark:text-sky-400" :
@@ -159,9 +163,9 @@ export function YieldSpreadCard({ inputs, metrics }: Props) {
         {spreadRows.map(row => (
           <div key={row.label}>
             <div className="flex justify-between items-center mb-1">
-              <span className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1">
+              <span className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-0.5">
                 {row.label}
-                <span className="text-slate-300 dark:text-slate-500 cursor-help text-[10px]" title={row.tooltip}>ⓘ</span>
+                <Tooltip content={row.tooltip} position="right" />
               </span>
               <span className={`text-xs font-bold ${
                 row.value >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
@@ -177,9 +181,9 @@ export function YieldSpreadCard({ inputs, metrics }: Props) {
       {/* Appreciation dependency gauge */}
       <div className="mt-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 px-4 py-3">
         <div className="flex justify-between items-center mb-2">
-          <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-0.5">
             Appreciation Dependency
-            <span className="ml-1 text-slate-400 cursor-help text-[10px]" title="% of total return that must come from price appreciation rather than rental income">ⓘ</span>
+            <Tooltip content="The percentage of your total projected IRR that comes from property price appreciation rather than rental income. 80%+ means the deal is heavily reliant on the property going up in value — risky if the market stagnates." />
           </p>
           <p className={`text-sm font-bold ${
             appreciationDep >= 80 ? "text-rose-600 dark:text-rose-400" :
