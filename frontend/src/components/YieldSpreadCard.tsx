@@ -123,7 +123,7 @@ export function YieldSpreadCard({ inputs, metrics }: Props) {
         <div>
           <h3 className="font-semibold text-slate-800 dark:text-slate-100">📐 Yield Spread Analysis</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            How does this property's income yield compare to market alternatives?
+            How does this property&apos;s income yield compare to market alternatives?
           </p>
         </div>
         <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 ml-2 ${verdictBg[verdict.color]} ${verdictText[verdict.color]}`}>
@@ -213,7 +213,7 @@ export function YieldSpreadCard({ inputs, metrics }: Props) {
         <div className="mt-3 flex items-start gap-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 px-3 py-2">
           <span className="text-rose-500 flex-shrink-0">⚠</span>
           <p className="text-xs text-rose-700 dark:text-rose-300">
-            This property's gross yield of <strong>{grossYield.toFixed(2)}%</strong> is below the risk-free 10Y G-Sec rate of 7.1%. A government bond pays more income with zero risk. Returns depend on appreciation.
+            This property&apos;s gross yield of <strong>{grossYield.toFixed(2)}%</strong> is below the risk-free 10Y G-Sec rate of 7.1%. A government bond pays more income with zero risk. Returns depend on appreciation.
           </p>
         </div>
       )}
