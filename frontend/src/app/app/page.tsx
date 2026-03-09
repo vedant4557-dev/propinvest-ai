@@ -76,13 +76,13 @@ import type {
 type Mode = "single" | "portfolio" | "saved";
 type Tab = "overview" | "simulation" | "tax" | "deal" | "ai" | "wealth";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "overview",   label: "Overview" },
-  { id: "simulation", label: "Simulation" },
-  { id: "deal",       label: "Deal Analysis" },
-  { id: "tax",        label: "Tax & Returns" },
-  { id: "ai",         label: "AI Insights" },
-  { id: "wealth",     label: "🏦 Wealth" },
+const TABS: { id: Tab; label: string; short: string }[] = [
+  { id: "overview",   label: "Overview",      short: "Overview" },
+  { id: "simulation", label: "Simulation",    short: "Simulate" },
+  { id: "deal",       label: "Deal Analysis", short: "Deal" },
+  { id: "tax",        label: "Tax & Returns", short: "Tax" },
+  { id: "ai",         label: "AI Insights",   short: "AI" },
+  { id: "wealth",     label: "🏦 Wealth",     short: "🏦" },
 ];
 
 export default function Home() {
@@ -170,50 +170,56 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur px-6 py-3 dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white text-sm font-bold">P</div>
-              <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur px-3 py-2.5 sm:px-6 sm:py-3 dark:border-slate-800 dark:bg-slate-900/90">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2">
+          {/* Logo */}
+          <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-white text-xs font-bold flex-shrink-0">P</div>
+              <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100 hidden sm:block">
                 PropInvest <span className="text-primary-500">AI</span>
-                <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.4</span>
+                <span className="ml-1.5 rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.5</span>
               </h1>
             </Link>
-            <Link href="/projects" className="hidden sm:block text-xs font-medium text-slate-500 hover:text-primary-500 transition-colors ml-1">
-              Projects →
-            </Link>
+            <Link href="/projects" className="hidden lg:block text-xs font-medium text-slate-400 hover:text-primary-500 transition-colors">Projects</Link>
+            <Link href="/emi-calculator" className="hidden lg:block text-xs font-medium text-slate-400 hover:text-primary-500 transition-colors">EMI</Link>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-              {(["single", "portfolio", "saved"] as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => switchMode(m)}
-                  className={`px-3 py-1.5 text-xs font-medium capitalize transition ${
-                    mode === m
-                      ? "bg-primary-600 text-white dark:bg-primary-500"
-                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {m === "saved" ? `Saved (${deals.length})` : m}
-                </button>
-              ))}
-            </div>
+          {/* Mode switcher */}
+          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden flex-shrink-0">
+            {(["single", "portfolio", "saved"] as Mode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => switchMode(m)}
+                title={m === "saved" ? `Saved (${deals.length})` : m}
+                className={`py-1.5 text-xs font-medium capitalize transition px-2 sm:px-3 ${
+                  mode === m
+                    ? "bg-primary-600 text-white dark:bg-primary-500"
+                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                }`}
+              >
+                <span className="hidden sm:inline">{m === "saved" ? `Saved (${deals.length})` : m}</span>
+                <span className="sm:hidden">{m === "single" ? "⊙" : m === "portfolio" ? "⊞" : `★${deals.length}`}</span>
+              </button>
+            ))}
+          </div>
+          {/* Actions */}
+          <div className="flex items-center gap-1 flex-shrink-0">
             {result && mode === "single" && (
               <>
                 <button
                   onClick={handleSave}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                  title="Save Deal"
+                  className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
                     saveSuccess
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                   }`}
                 >
-                  {saveSuccess ? "✓ Saved" : "Save Deal"}
+                  <span className="hidden sm:inline">{saveSuccess ? "✓ Saved" : "Save"}</span>
+                  <span className="sm:hidden">{saveSuccess ? "✓" : "💾"}</span>
                 </button>
                 <ShareButton inputs={inputs} />
-                <ExportPDF result={result} reportRef={reportRef} />
+                <span className="hidden sm:block"><ExportPDF result={result} reportRef={reportRef} /></span>
               </>
             )}
             <ThemeToggle />
@@ -232,7 +238,7 @@ export default function Home() {
             />
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-5">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-5">
             <div className="lg:col-span-2">
               <div className="sticky top-20 space-y-4">
                 <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -314,20 +320,23 @@ function SingleResultView({
         taxAnalysis={result.tax_analysis}
         dealScore={result.deal_analysis?.deal_score ?? null}
       />
-      <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => onTabChange(t.id)}
-            className={`flex-1 rounded-lg py-2 text-xs font-medium transition ${
-              activeTab === t.id
-                ? "bg-primary-600 text-white shadow-sm dark:bg-primary-500"
-                : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="overflow-x-auto -mx-1 px-1 pb-0.5">
+        <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800 min-w-max sm:min-w-0">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onTabChange(t.id)}
+              className={`flex-shrink-0 sm:flex-1 rounded-lg py-2 px-3 sm:px-2 text-xs font-medium transition whitespace-nowrap ${
+                activeTab === t.id
+                  ? "bg-primary-600 text-white shadow-sm dark:bg-primary-500"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50"
+              }`}
+            >
+              <span className="hidden sm:inline">{t.label}</span>
+              <span className="sm:hidden">{t.short}</span>
+            </button>
+          ))}
+        </div>
       </div>
       <div ref={reportRef} className="space-y-4">
         {activeTab === "overview"   && <OverviewTab result={result} inputs={inputs} />}
