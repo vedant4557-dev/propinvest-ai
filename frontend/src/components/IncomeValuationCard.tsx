@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { Tooltip } from "@/lib/glossary";
 import type { InvestmentInput, InvestmentMetrics } from "@/types/investment";
 
 // ─── Inlined engine (subset) ──────────────────────────────────────────────
@@ -105,9 +106,9 @@ export function IncomeValuationCard({ inputs, metrics }: Props) {
       <div className="grid grid-cols-3 gap-3 mt-4">
         {/* Entry cap rate */}
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1 flex items-center">
             Your Entry Cap Rate
-            <span className="ml-1 text-slate-300 dark:text-slate-500 cursor-help" title="NOI ÷ Purchase Price. Lower = you're paying more per rupee of income.">ⓘ</span>
+            <Tooltip content="NOI ÷ Purchase Price. The income return implied by the price you're paying. A lower entry cap rate than the market means you're paying a premium — relying more on appreciation." />
           </p>
           <p className={`text-xl font-black ${capGap > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
             {entryCap.toFixed(2)}%
@@ -117,9 +118,9 @@ export function IncomeValuationCard({ inputs, metrics }: Props) {
 
         {/* Market cap rate */}
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1 flex items-center">
             Market Cap Rate
-            <span className="ml-1 text-slate-300 dark:text-slate-500 cursor-help" title="Benchmark cap rate for similar properties in this city.">ⓘ</span>
+            <Tooltip content="The typical cap rate for similar properties in this city — derived from reported transactions. Buying at the market cap rate means you're paying a fair income-based price." />
           </p>
           <p className="text-xl font-black text-slate-800 dark:text-slate-100">{mktCap.toFixed(1)}%</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Yield range: {bench.yieldLow}–{bench.yieldHigh}%</p>
@@ -127,9 +128,9 @@ export function IncomeValuationCard({ inputs, metrics }: Props) {
 
         {/* Income-based value */}
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 mb-1 flex items-center">
             Income Fair Value
-            <span className="ml-1 text-slate-300 dark:text-slate-500 cursor-help" title="NOI ÷ Market Cap Rate — what this property would be worth if priced at market yield.">ⓘ</span>
+            <Tooltip content="NOI ÷ Market Cap Rate. What this property would be worth if priced at the city's typical yield. If the asking price is above this, you're paying for expected future appreciation." />
           </p>
           <p className={`text-xl font-black ${premium > 15 ? "text-rose-600 dark:text-rose-400" : premium > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
             {fmt(incomeValue)}
@@ -143,12 +144,15 @@ export function IncomeValuationCard({ inputs, metrics }: Props) {
       {/* Yield spread row */}
       <div className="mt-3 grid grid-cols-3 gap-2">
         {[
-          { label: "Gross Yield", value: `${grossYield.toFixed(2)}%`, sub: "property", highlight: false },
-          { label: "Market Yield", value: `${mktYieldMid.toFixed(1)}%`, sub: "city avg", highlight: false },
-          { label: "vs G-Sec (7.1%)", value: `${gSecSpread >= 0 ? "+" : ""}${gSecSpread.toFixed(2)}pp`, sub: "spread", highlight: true, positive: gSecSpread >= 0 },
+          { label: "Gross Yield", value: `${grossYield.toFixed(2)}%`, sub: "property", highlight: false, tip: "Annual rent ÷ property price. Raw rental income return before vacancy, maintenance, or tax deductions." },
+          { label: "Market Yield", value: `${mktYieldMid.toFixed(1)}%`, sub: "city avg", highlight: false, tip: "The midpoint of the typical rental yield range for similar properties in this city." },
+          { label: "vs G-Sec (7.1%)", value: `${gSecSpread >= 0 ? "+" : ""}${gSecSpread.toFixed(2)}pp`, sub: "spread", highlight: true, positive: gSecSpread >= 0, tip: "Your gross yield minus the 10-year Government Securities rate (7.1%). Positive = property out-yields a risk-free bond. Negative = you must rely on appreciation to beat the risk-free rate." },
         ].map((item) => (
           <div key={item.label} className="text-center rounded-lg bg-slate-50 dark:bg-slate-700/40 py-2 px-2">
-            <p className="text-[10px] text-slate-400">{item.label}</p>
+            <p className="text-[10px] text-slate-400 flex items-center justify-center gap-0.5">
+              {item.label}
+              <Tooltip content={item.tip} position="bottom" />
+            </p>
             <p className={`text-sm font-bold ${item.highlight ? (item.positive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400") : "text-slate-800 dark:text-slate-100"}`}>
               {item.value}
             </p>
