@@ -6,17 +6,33 @@ import { formatINR, formatPercent } from "@/lib/format";
 interface SavedDealsPanelProps {
   deals: SavedDeal[];
   onLoad: (input: InvestmentInput, result: AnalyzeInvestmentResponse) => void;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<void>;
+  isCloud?: boolean;
+  syncing?: boolean;
+  onSignIn?: () => void;
 }
 
-export function SavedDealsPanel({ deals, onLoad, onRemove }: SavedDealsPanelProps) {
+export function SavedDealsPanel({ deals, onLoad, onRemove, isCloud = false, syncing = false, onSignIn }: SavedDealsPanelProps) {
   if (deals.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white py-24 dark:border-slate-700 dark:bg-slate-800">
-        <div className="text-center">
-          <div className="text-5xl mb-4">📁</div>
-          <h3 className="font-semibold text-slate-700 dark:text-slate-300">No saved deals yet</h3>
-          <p className="mt-1 text-sm text-slate-500">Analyze a property and click &quot;Save Deal&quot; to store it here</p>
+      <div className="space-y-4">
+        {!isCloud && onSignIn && (
+          <div className="rounded-xl border border-primary-200 dark:border-primary-800/40 bg-primary-50/60 dark:bg-primary-900/10 p-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Sign in for cloud saves</p>
+              <p className="text-xs text-slate-500 mt-0.5">Save unlimited deals, access from any device</p>
+            </div>
+            <button onClick={onSignIn} className="flex-shrink-0 rounded-lg bg-primary-600 px-3 py-2 text-xs font-bold text-white hover:bg-primary-700 transition-colors">
+              Sign in →
+            </button>
+          </div>
+        )}
+        <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white py-24 dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-center">
+            <div className="text-5xl mb-4">📁</div>
+            <h3 className="font-semibold text-slate-700 dark:text-slate-300">No saved deals yet</h3>
+            <p className="mt-1 text-sm text-slate-500">Analyze a property and click &quot;Save Deal&quot; to store it here</p>
+          </div>
         </div>
       </div>
     );
@@ -27,6 +43,29 @@ export function SavedDealsPanel({ deals, onLoad, onRemove }: SavedDealsPanelProp
 
   return (
     <div className="space-y-4">
+      {/* Cloud / local badge + sign-in nudge */}
+      {!isCloud && onSignIn && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-500">⚠️</span>
+            <div>
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Saved locally only</p>
+              <p className="text-xs text-amber-600/70 dark:text-amber-500/70">Deals will be lost if you clear your browser</p>
+            </div>
+          </div>
+          <button onClick={onSignIn} className="flex-shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-600 transition-colors">
+            Backup to cloud →
+          </button>
+        </div>
+      )}
+      {isCloud && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-800/30 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-2.5">
+          <span className={`text-sm ${syncing ? "text-amber-500 animate-spin" : "text-emerald-500"}`}>{syncing ? "⟳" : "☁️"}</span>
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            {syncing ? "Syncing to cloud…" : `${deals.length} deal${deals.length !== 1 ? "s" : ""} synced to cloud`}
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           Saved Deals <span className="ml-2 text-sm font-normal text-slate-500">({deals.length})</span>
