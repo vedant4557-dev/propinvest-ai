@@ -180,6 +180,9 @@ export default function Home() {
                 <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.4</span>
               </h1>
             </Link>
+            <Link href="/projects" className="hidden sm:block text-xs font-medium text-slate-500 hover:text-primary-500 transition-colors ml-1">
+              Projects →
+            </Link>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
