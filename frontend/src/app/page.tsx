@@ -143,6 +143,7 @@ function Nav() {
           <a href="#features" className="hover:text-white transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
           <a href="#cities" className="hover:text-white transition-colors">Cities</a>
+          <Link href="/projects" className="hover:text-white transition-colors">Projects</Link>
         </div>
         <Link
           href="/app"
