@@ -144,6 +144,7 @@ function Nav() {
           <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
           <a href="#cities" className="hover:text-white transition-colors">Cities</a>
           <Link href="/projects" className="hover:text-white transition-colors">Projects</Link>
+          <Link href="/emi-calculator" className="hover:text-white transition-colors">EMI Calc</Link>
         </div>
         <Link
           href="/app"
