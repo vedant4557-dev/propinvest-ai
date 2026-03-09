@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { InputForm } from "@/components/InputForm";
 import { PortfolioForm } from "@/components/PortfolioForm";
 import { SavedDealsPanel } from "@/components/SavedDealsPanel";
@@ -59,6 +59,11 @@ import { SmartSummaryBanner } from "@/components/SmartSummaryBanner";
 import { RenovationValueAddCard } from "@/components/RenovationValueAddCard";
 import { WealthBuilderCard } from "@/components/WealthBuilderCard";
 import { AIInvestmentMemo } from "@/components/AIInvestmentMemo";
+// V3.4 — Startup features: Share URL, Example Deals, Nifty Comparator
+import { ShareButton } from "@/components/ShareButton";
+import { ExampleDeals } from "@/components/ExampleDeals";
+import { NiftyComparatorCard } from "@/components/NiftyComparatorCard";
+import { useShareURL } from "@/hooks/useShareURL";
 import { analyzeInvestment, analyzePortfolio } from "@/lib/api";
 import { useDeals } from "@/hooks/useDeals";
 import type {
@@ -88,8 +93,24 @@ export default function Home() {
   const [error, setError]                 = useState<string | null>(null);
   const [inputs, setInputs]               = useState<InvestmentInput | null>(null);
   const [saveSuccess, setSaveSuccess]     = useState(false);
+  const [showExamples, setShowExamples]   = useState(true);
+  const [sharedLoaded, setSharedLoaded]   = useState(false);
   const reportRef                         = useRef<HTMLDivElement | null>(null);
   const { deals, save, remove }           = useDeals();
+  const { getSharedInput, clearSharedParam } = useShareURL();
+
+  // Auto-load shared deal from URL on first render
+  useEffect(() => {
+    if (sharedLoaded) return;
+    setSharedLoaded(true);
+    const sharedInput = getSharedInput();
+    if (sharedInput) {
+      clearSharedParam();
+      setShowExamples(false);
+      handleAnalyze(sharedInput);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAnalyze = async (input: InvestmentInput) => {
     setLoading(true);
@@ -97,6 +118,7 @@ export default function Home() {
     setPortfolioResult(null);
     setInputs(input);
     setActiveTab("overview");
+    setShowExamples(false);
     try {
       const data = await analyzeInvestment(input);
       setResult(data);
@@ -184,6 +206,7 @@ export default function Home() {
                 >
                   {saveSuccess ? "✓ Saved" : "Save Deal"}
                 </button>
+                <ShareButton inputs={inputs} />
                 <ExportPDF result={result} reportRef={reportRef} />
               </>
             )}
@@ -221,6 +244,16 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+                {/* V3.4 — Example deals (shown when no result yet) */}
+                {mode === "single" && (
+                  <ExampleDeals
+                    isVisible={showExamples && !result && !loading}
+                    onSelect={(input) => {
+                      setShowExamples(false);
+                      handleAnalyze(input);
+                    }}
+                  />
+                )}
                 {inputs && mode === "single" && (
                   <ValidationWarnings input={inputs} result={result} />
                 )}
@@ -494,6 +527,8 @@ function WealthTab({ result, inputs }: { result: AnalyzeInvestmentResponse; inpu
     <div className="space-y-4">
       {/* V3.3 — 20-year wealth builder + FIRE projection */}
       <WealthBuilderCard inputs={inputs} metrics={result.metrics} />
+      {/* V3.4 — Real estate vs Nifty/MF/FD/Gold comparator */}
+      <NiftyComparatorCard inputs={inputs} metrics={result.metrics} taxAnalysis={result.tax_analysis} />
       {/* V3.3 — AI Investment Memo */}
       <AIInvestmentMemo
         inputs={inputs}
