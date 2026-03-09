@@ -7,6 +7,7 @@ import {
   calculateLeveredUnleveredIRR,
 } from "@/lib/advancedMetricsEngine";
 import { formatINR, formatPercent } from "@/lib/format";
+import { Tooltip } from "@/lib/glossary";
 import type { InvestmentInput, InvestmentMetrics, CashFlowYear, TaxAnalysis } from "@/types/investment";
 
 interface Props {
@@ -73,7 +74,10 @@ export function AdvancedMetricsCard({ inputs, metrics, cashFlowTimeline, taxAnal
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Equity Multiple */}
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Equity Multiple</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 flex items-center gap-0.5">
+            Equity Multiple
+            <Tooltip content="Total cash returned to you ÷ equity invested. A 2.5x multiple means you got ₹2.50 back for every ₹1.00 you put in — including rent collected and sale proceeds." />
+          </p>
           <p className={`text-2xl font-black ${emColors[emResult.verdictColor]}`}>
             {emResult.equityMultiple.toFixed(2)}x
           </p>
@@ -83,7 +87,10 @@ export function AdvancedMetricsCard({ inputs, metrics, cashFlowTimeline, taxAnal
 
         {/* Payback Period */}
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Payback Period</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 flex items-center gap-0.5">
+            Payback Period
+            <Tooltip content="Years until cumulative rental cash flows recover your initial equity (down payment + costs). Does not count appreciation — purely income-based recovery. 12 years = rent alone takes 12 years to return your investment." />
+          </p>
           {pbResult.recovered && pbResult.paybackYears > 0 ? (
             <>
               <p className="text-2xl font-black text-sky-700 dark:text-sky-400">
@@ -103,18 +110,30 @@ export function AdvancedMetricsCard({ inputs, metrics, cashFlowTimeline, taxAnal
 
         {/* Levered vs Unlevered IRR */}
         <div className="rounded-xl bg-slate-50 dark:bg-slate-700/50 p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-2">Levered vs Unlevered IRR</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-2 flex items-center gap-0.5">
+            Levered vs Unlevered IRR
+            <Tooltip content="Levered IRR uses your actual equity with the loan. Unlevered IRR is what you'd earn buying entirely in cash. A positive leverage effect means taking a loan amplified your return." maxWidth={300} />
+          </p>
           <div className="space-y-1.5 mb-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">Levered</span>
+              <span className="text-xs text-slate-500 flex items-center gap-0.5">
+                Levered
+                <Tooltip content="IRR calculated on your equity invested (with loan). The loan amplifies returns by letting you control a larger asset with less capital." />
+              </span>
               <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{formatPercent(irrResult.leveredIRR)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">Unlevered</span>
+              <span className="text-xs text-slate-500 flex items-center gap-0.5">
+                Unlevered
+                <Tooltip content="IRR if you bought the property entirely in cash. Shows the property's underlying return, independent of financing." />
+              </span>
               <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{formatPercent(irrResult.unleveredIRR)}</span>
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-600 pt-1.5">
-              <span className="text-xs font-medium text-slate-500">Leverage Effect</span>
+              <span className="text-xs font-medium text-slate-500 flex items-center gap-0.5">
+                Leverage Effect
+                <Tooltip content="Levered IRR minus Unlevered IRR. Positive = loan improved your return. Negative = loan interest cost exceeds the property income return." />
+              </span>
               <span className={`text-sm font-bold ${irrResult.leverageBenefit ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                 {irrResult.leverageEffect >= 0 ? "+" : ""}{irrResult.leverageEffect.toFixed(1)}pp
               </span>
