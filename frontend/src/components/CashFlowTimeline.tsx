@@ -74,7 +74,7 @@ export function CashFlowTimeline({ data }: CashFlowTimelineProps) {
             </thead>
             <tbody>
               {data.map((row) => (
-                <tr key={row.year} className="border-b border-slate-50 dark:border-slate-700/50">
+                <tr key={row.year} className="border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-700/20">
                   <td className="py-1.5 font-medium text-slate-700 dark:text-slate-300">Y{row.year}</td>
                   <td className="py-1.5 pr-3 text-right text-slate-600 dark:text-slate-400">{formatINR(row.rental_income)}</td>
                   <td className="py-1.5 pr-3 text-right text-rose-600 dark:text-rose-400">{formatINR(row.emi_paid)}</td>
@@ -89,6 +89,26 @@ export function CashFlowTimeline({ data }: CashFlowTimelineProps) {
                 </tr>
               ))}
             </tbody>
+            {/* Totals row */}
+            {data.length > 0 && (() => {
+              const last = data[data.length - 1];
+              const totalRent = data.reduce((s, r) => s + r.rental_income, 0);
+              const totalEMI  = data.reduce((s, r) => s + r.emi_paid, 0);
+              const totalCF   = data.reduce((s, r) => s + r.net_cash_flow, 0);
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/30 font-semibold">
+                    <td className="py-2 text-xs text-slate-500 dark:text-slate-400">Total</td>
+                    <td className="py-2 pr-3 text-right text-slate-700 dark:text-slate-200">{formatINR(totalRent)}</td>
+                    <td className="py-2 pr-3 text-right text-rose-700 dark:text-rose-400">{formatINR(totalEMI)}</td>
+                    <td className={`py-2 pr-3 text-right ${totalCF >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>{formatINR(totalCF)}</td>
+                    <td className={`py-2 pr-3 text-right ${last.cumulative_cash_flow >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>{formatINR(last.cumulative_cash_flow)}</td>
+                    <td className="py-2 pr-3 text-right text-slate-700 dark:text-slate-200">{formatINR(last.property_value)}</td>
+                    <td className="py-2 text-right text-amber-700 dark:text-amber-400">{formatINR(last.equity)}</td>
+                  </tr>
+                </tfoot>
+              );
+            })()}
           </table>
         </div>
       )}
