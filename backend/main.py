@@ -4,6 +4,7 @@ PropInvest AI — FastAPI Backend V3
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.investment import router
+from app.routes.listings import router as listings_router
 
 app = FastAPI(
     title="PropInvest AI",
@@ -25,3 +26,4 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(listings_router)
