@@ -81,7 +81,7 @@ function MemoContent({ memo, inputs, metrics, taxAnalysis }: {
         </div>
 
         {/* Quick financials */}
-        <div className="grid grid-cols-4 gap-2 mt-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
           {[
             { l: "IRR (Pre-Tax)",    v: `${metrics.irr.toFixed(1)}%` },
             { l: "Post-Tax IRR",     v: `${(taxAnalysis?.post_tax_irr ?? metrics.irr).toFixed(1)}%` },
