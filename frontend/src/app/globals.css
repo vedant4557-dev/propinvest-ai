@@ -29,3 +29,80 @@
     @apply bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100;
   }
 }
+/* Add these to your existing globals.css */
+/* Dark mode patch — fixes components missing dark: Tailwind classes */
+
+/* Prose content in dark mode */
+.dark .prose-invert p,
+.dark .prose-invert li,
+.dark .prose-invert td {
+  color: #cbd5e1; /* slate-300 */
+}
+
+/* Any white bg card missing dark: class */
+.dark .bg-white {
+  background-color: #1e293b; /* slate-800 */
+}
+
+/* Any light border missing dark: class */
+.dark .border-slate-100 {
+  border-color: #334155; /* slate-700 */
+}
+
+/* Text that's too dark in dark mode */
+.dark .text-slate-900 {
+  color: #f1f5f9; /* slate-100 */
+}
+.dark .text-slate-800 {
+  color: #e2e8f0; /* slate-200 */
+}
+
+/* Input fields in dark mode */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark select,
+.dark textarea {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark input[type="text"]:focus,
+.dark input[type="number"]:focus,
+.dark input[type="email"]:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #16a34a;
+  outline-color: #16a34a;
+}
+
+/* Table rows in dark mode */
+.dark tr:nth-child(even) {
+  background-color: #1e293b;
+}
+.dark tr:hover {
+  background-color: #334155;
+}
+.dark th {
+  background-color: #0f172a;
+  color: #94a3b8;
+}
+.dark td {
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+/* Recharts (charts) dark mode */
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: #334155;
+}
+.dark .recharts-text {
+  fill: #94a3b8;
+}
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f1f5f9 !important;
+}
