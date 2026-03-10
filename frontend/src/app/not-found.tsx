@@ -20,8 +20,8 @@ export default function NotFound() {
           This property doesn't exist
         </h1>
         <p className="text-slate-400 text-sm mb-8">
-          The page you're looking for has been removed, moved, or never existed.
-          Let's get you back to analyzing real estate.
+          The page you&apos;re looking for has been removed, moved, or never existed.
+          Let&apos;s get you back to analyzing real estate.
         </p>
 
         {/* CTA */}
