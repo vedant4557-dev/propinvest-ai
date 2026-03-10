@@ -35,14 +35,15 @@ interface Props {
   aiAnalysis?: AIAnalysis | null;
 }
 
-// ─── PDF print styles (injected into head) ────────────────────────────────
+// ─── PDF print styles ──────────────────────────────────────────────────────
 
 const PRINT_CSS = `
   @media print {
     body > * { display: none !important; }
-    .propinvest-memo-print { display: block !important; }
-    .propinvest-memo-print { font-family: Georgia, serif; color: #000; }
+    #propinvest-memo-print-root { display: block !important; position: static !important; }
+    #propinvest-memo-print-root * { color: #000 !important; background: #fff !important; }
     .no-print { display: none !important; }
+    @page { margin: 20mm; }
   }
 `;
 
@@ -60,7 +61,9 @@ function MemoContent({ memo, inputs, metrics, taxAnalysis }: {
       <div className="border-b-2 border-slate-800 dark:border-slate-200 pb-4">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Investment Memorandum — Confidential</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">
+              Investment Memorandum — Confidential
+            </p>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{memo.property}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               {inputs.city ? `${inputs.city} · ` : ""}{fmt(inputs.property_purchase_price)} · {inputs.holding_period_years}-Year Hold
@@ -80,14 +83,14 @@ function MemoContent({ memo, inputs, metrics, taxAnalysis }: {
         {/* Quick financials */}
         <div className="grid grid-cols-4 gap-2 mt-4">
           {[
-            { l: "IRR (Pre-Tax)",   v: `${metrics.irr.toFixed(1)}%` },
-            { l: "Post-Tax IRR",   v: `${(taxAnalysis?.post_tax_irr ?? metrics.irr).toFixed(1)}%` },
-            { l: "DSCR",           v: `${metrics.dscr.toFixed(2)}x` },
-            { l: "Gross Yield",    v: `${metrics.gross_rental_yield.toFixed(2)}%` },
-            { l: "Cap Rate",       v: `${metrics.cap_rate.toFixed(2)}%` },
-            { l: "NPV",            v: fmt(metrics.npv) },
-            { l: "Equity Multiple", v: `${(metrics.future_property_value / metrics.effective_down_payment).toFixed(1)}x` },
-            { l: "Future Value",   v: fmt(metrics.future_property_value) },
+            { l: "IRR (Pre-Tax)",    v: `${metrics.irr.toFixed(1)}%` },
+            { l: "Post-Tax IRR",     v: `${(taxAnalysis?.post_tax_irr ?? metrics.irr).toFixed(1)}%` },
+            { l: "DSCR",             v: `${metrics.dscr.toFixed(2)}x` },
+            { l: "Gross Yield",      v: `${metrics.gross_rental_yield.toFixed(2)}%` },
+            { l: "Cap Rate",         v: `${metrics.cap_rate.toFixed(2)}%` },
+            { l: "NPV",              v: fmt(metrics.npv) },
+            { l: "Equity Multiple",  v: `${(metrics.future_property_value / metrics.effective_down_payment).toFixed(1)}x` },
+            { l: "Future Value",     v: fmt(metrics.future_property_value) },
           ].map(item => (
             <div key={item.l} className="rounded-lg bg-slate-50 dark:bg-slate-700/50 p-2.5 text-center">
               <p className="text-[9px] text-slate-400 uppercase tracking-wider">{item.l}</p>
@@ -97,14 +100,14 @@ function MemoContent({ memo, inputs, metrics, taxAnalysis }: {
         </div>
       </div>
 
-      {/* Memo sections */}
+      {/* Memo sections — rendered with full content */}
       {memo.sections.map((section, idx) => (
-        <div key={idx} className="space-y-1">
+        <div key={idx} className="space-y-2">
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 border-l-4 border-primary-500 pl-3 py-0.5">
             {idx + 1}. {section.title}
           </h3>
           <div className="pl-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-            {section.content}
+            {section.content || <span className="text-slate-400 italic">No content generated for this section.</span>}
           </div>
         </div>
       ))}
@@ -130,7 +133,11 @@ function StreamingDisplay({ text }: { text: string }) {
         const body = lines.slice(1).join("\n");
         return (
           <div key={i}>
-            {i > 0 && <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm border-l-4 border-primary-500 pl-3 py-0.5 mb-1">{heading}</h4>}
+            {i > 0 && (
+              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm border-l-4 border-primary-500 pl-3 py-0.5 mb-1">
+                {heading}
+              </h4>
+            )}
             {i === 0 && <p className="font-semibold text-slate-700 dark:text-slate-200">{heading}</p>}
             <p className="whitespace-pre-wrap text-slate-600 dark:text-slate-300">{body}</p>
           </div>
@@ -138,6 +145,47 @@ function StreamingDisplay({ text }: { text: string }) {
       })}
     </div>
   );
+}
+
+// ─── Section parser ────────────────────────────────────────────────────────
+
+function parseMemoSections(text: string): MemoSection[] {
+  const sectionTitles = [
+    "Investment Thesis",
+    "Key Risks",
+    "Financial Summary",
+    "Market Outlook",
+    "Scenario Analysis",
+    "Exit Strategy",
+    "Recommendation",
+  ];
+
+  const sections: MemoSection[] = [];
+
+  for (let i = 0; i < sectionTitles.length; i++) {
+    const title = sectionTitles[i];
+    const next  = sectionTitles[i + 1];
+
+    // Match headings like: ## Investment Thesis  OR  ## 1. Investment Thesis
+    const startRegex = new RegExp(`#{1,3}\\s*(?:\\d+\\.\\s*)?${title}`, "i");
+    const endRegex   = next ? new RegExp(`#{1,3}\\s*(?:\\d+\\.\\s*)?${next}`, "i") : null;
+
+    const startMatch = text.match(startRegex);
+    if (!startMatch || startMatch.index === undefined) continue;
+
+    const startIdx = startMatch.index + startMatch[0].length;
+    const endIdx   = endRegex ? (text.match(endRegex)?.index ?? text.length) : text.length;
+
+    const content = text.slice(startIdx, endIdx).trim();
+    if (content) sections.push({ title, content });
+  }
+
+  // Fallback: if no sections matched, return the whole text as one section
+  if (sections.length === 0 && text.trim()) {
+    return [{ title: "Investment Analysis", content: text.trim() }];
+  }
+
+  return sections;
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────
@@ -150,8 +198,8 @@ export function AIInvestmentMemo({ inputs, metrics, taxAnalysis, aiAnalysis }: P
   const memoRef = useRef<HTMLDivElement>(null);
 
   const postTaxIRR = taxAnalysis?.post_tax_irr ?? metrics.irr;
-  const propName = inputs.property_name || "Property";
-  const city = inputs.city || "India";
+  const propName   = inputs.property_name || "Property";
+  const city       = inputs.city || "India";
 
   const buildPrompt = () => {
     const verdict =
@@ -225,39 +273,61 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
       });
 
       if (!response.ok) throw new Error(`API error ${response.status}`);
-      if (!response.body) throw new Error("No response body");
+      if (!response.body)  throw new Error("No response body");
 
       setState("streaming");
-      const reader = response.body.getReader();
+      const reader  = response.body.getReader();
       const decoder = new TextDecoder();
-      let fullText = "";
+      let fullText  = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
 
         for (const line of lines) {
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+
+          const raw = trimmed.slice(5).trim();
+          if (!raw || raw === "[DONE]") continue;
+
           try {
-            const parsed = JSON.parse(data);
-            const delta = parsed?.delta?.text ?? parsed?.content?.[0]?.text ?? "";
+            const parsed = JSON.parse(raw);
+
+            // ── FIX: handle ALL possible Gemini / OpenAI streaming shapes ──
+            const delta =
+              // Gemini REST streaming: candidates[0].content.parts[0].text
+              parsed?.candidates?.[0]?.content?.parts?.[0]?.text ??
+              // Gemini via delta wrapper (some proxy versions)
+              parsed?.delta?.text ??
+              // OpenAI-style delta
+              parsed?.choices?.[0]?.delta?.content ??
+              // Generic content array (Anthropic style)
+              parsed?.content?.[0]?.text ??
+              // Plain text field
+              parsed?.text ??
+              "";
+
             if (delta) {
               fullText += delta;
               setStreamText(fullText);
             }
           } catch {
-            // skip malformed chunks
+            // malformed JSON chunk — skip silently
           }
         }
       }
 
-      // Parse into structured memo
-      const sections = parseMemSections(fullText);
-      const verdict =
+      if (!fullText.trim()) {
+        throw new Error("Gemini returned an empty response. Check GEMINI_API_KEY in Railway Variables.");
+      }
+
+      // Parse streamed markdown into structured sections
+      const sections = parseMemoSections(fullText);
+      const verdict  =
         metrics.irr >= 15 && metrics.dscr >= 1.2 ? "Strong Buy" :
         metrics.irr >= 10 && metrics.dscr >= 1.0  ? "Buy"        :
         metrics.irr >= 7                           ? "Hold"       : "Avoid";
@@ -275,24 +345,63 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
     }
   };
 
+  // ── FIX: PDF export using a dedicated print container ──────────────────
   const exportPDF = () => {
-    // Inject print CSS
-    let style = document.getElementById("memo-print-style");
-    if (!style) {
-      style = document.createElement("style");
-      style.id = "memo-print-style";
-      document.head.appendChild(style);
-    }
-    style.innerHTML = PRINT_CSS;
+    if (!memoRef.current) return;
 
-    // Mark memo for print
-    if (memoRef.current) {
-      memoRef.current.classList.add("propinvest-memo-print");
+    // Build a full printable HTML page in a new window
+    const content = memoRef.current.innerHTML;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) {
+      // Fallback to window.print() if popup blocked
+      let style = document.getElementById("memo-print-style") as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "memo-print-style";
+        document.head.appendChild(style);
+      }
+      style.innerHTML = PRINT_CSS;
+      const root = document.getElementById("propinvest-memo-print-root");
+      if (root) root.style.display = "block";
+      window.print();
+      if (root) root.style.display = "none";
+      return;
     }
-    window.print();
-    if (memoRef.current) {
-      memoRef.current.classList.remove("propinvest-memo-print");
-    }
+
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${memo?.property || "Investment Memo"} — PropInvest AI</title>
+          <meta charset="utf-8" />
+          <style>
+            * { box-sizing: border-box; }
+            body { font-family: Georgia, serif; color: #111; background: #fff; padding: 32px 40px; max-width: 800px; margin: 0 auto; }
+            h2 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+            h3 { font-size: 14px; font-weight: 700; border-left: 4px solid #16a34a; padding-left: 10px; margin: 20px 0 6px; }
+            p, div { font-size: 13px; line-height: 1.7; }
+            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+            .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; text-align: center; }
+            .card-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+            .card-value { font-size: 14px; font-weight: 700; color: #1e293b; }
+            .verdict { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
+            .avoid { background: #fee2e2; color: #991b1b; }
+            .buy   { background: #e0f2fe; color: #075985; }
+            .hold  { background: #fef3c7; color: #92400e; }
+            .strong-buy { background: #d1fae5; color: #065f46; }
+            .header-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
+            .section-content { padding-left: 14px; white-space: pre-wrap; font-size: 13px; color: #334155; }
+            .footer { border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+            @media print { @page { margin: 15mm; } }
+          </style>
+        </head>
+        <body>
+          ${content}
+          <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
+        </body>
+      </html>
+    `);
+    win.document.close();
   };
 
   return (
@@ -302,7 +411,10 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
         <div>
           <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             📄 AI Investment Memo
-            <Tooltip content="Generates a professional private equity-style investment memorandum using AI — covering investment thesis, risks, financial summary, market outlook, scenario analysis, exit strategy, and final recommendation. Exportable as PDF." maxWidth={320} />
+            <Tooltip
+              content="Generates a professional private equity-style investment memorandum using AI — covering investment thesis, risks, financial summary, market outlook, scenario analysis, exit strategy, and final recommendation. Exportable as PDF."
+              maxWidth={320}
+            />
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Institutional-grade PE memo · Blackstone / McKinsey style · PDF export
@@ -323,21 +435,15 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
             className="flex items-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-xs font-bold text-white hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-sm"
           >
             {state === "loading" ? (
-              <>
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                Starting…
-              </>
+              <><span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Starting…</>
             ) : state === "streaming" ? (
-              <>
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                Writing…
-              </>
+              <><span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Writing…</>
             ) : state === "done" ? "Regenerate Memo" : "✦ Generate Memo"}
           </button>
         </div>
       </div>
 
-      {/* Idle state */}
+      {/* Idle */}
       {state === "idle" && (
         <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 py-12 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-900/30">
@@ -348,14 +454,14 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
             AI will write a full institutional-grade memo covering thesis, risks, financials, market outlook, scenarios, exit strategy and final recommendation.
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[10px] text-slate-400">
-            {["Investment Thesis", "Key Risks", "Financial Summary", "Market Outlook", "Scenario Analysis", "Exit Strategy", "Recommendation"].map(s => (
+            {["Investment Thesis","Key Risks","Financial Summary","Market Outlook","Scenario Analysis","Exit Strategy","Recommendation"].map(s => (
               <span key={s} className="rounded-full bg-slate-100 dark:bg-slate-700 px-2.5 py-1">{s}</span>
             ))}
           </div>
         </div>
       )}
 
-      {/* Streaming state */}
+      {/* Streaming */}
       {(state === "loading" || state === "streaming") && (
         <div className="rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -365,76 +471,50 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
             </span>
             <span className="text-xs text-slate-400 ml-auto">{propName} · {fmt(inputs.property_purchase_price)}</span>
           </div>
-          {streamText && <StreamingDisplay text={streamText} />}
-          {!streamText && (
+          {streamText ? (
+            <StreamingDisplay text={streamText} />
+          ) : (
             <div className="space-y-2">
-              {[140, 100, 120, 80].map((w, i) => (
-                <div key={i} className={`h-3 rounded bg-slate-200 dark:bg-slate-700 animate-pulse`} style={{ width: `${w * (i % 2 === 0 ? 1 : 0.7)}px` }} />
+              {[140, 100, 120, 80, 160, 90].map((w, i) => (
+                <div key={i} className="h-3 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" style={{ width: `${w}px` }} />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Done state */}
+      {/* Done */}
       {state === "done" && memo && (
-        <div ref={memoRef} className="rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-5">
+        <div
+          ref={memoRef}
+          id="propinvest-memo-print-root"
+          className="rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-5"
+        >
           <MemoContent memo={memo} inputs={inputs} metrics={metrics} taxAnalysis={taxAnalysis} />
         </div>
       )}
 
-      {/* Error state */}
+      {/* Error */}
       {state === "error" && (
         <div className="rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40 p-4">
           <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">⚠ Generation failed</p>
-          <p className="text-xs text-rose-600 dark:text-rose-500 mt-1">{errorMsg}</p>
-          <button onClick={generate} className="mt-3 rounded-lg bg-rose-100 dark:bg-rose-900/30 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors">
+          <p className="text-xs text-rose-600 dark:text-rose-500 mt-1 font-mono">{errorMsg}</p>
+          <button
+            onClick={generate}
+            className="mt-3 rounded-lg bg-rose-100 dark:bg-rose-900/30 px-3 py-1.5 text-xs font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-200 transition-colors"
+          >
             Try again
           </button>
         </div>
       )}
 
-      {/* What's included note */}
+      {/* Info note */}
       {state === "idle" && (
         <div className="mt-3 flex items-start gap-2 text-[10px] text-slate-400">
           <span className="flex-shrink-0">ℹ</span>
-          <span>Memo uses all computed metrics (IRR, DSCR, Cap Rate, NPV, tax analysis) plus city market data. Generation takes ~15 seconds.</span>
+          <span>Memo uses all computed metrics (IRR, DSCR, Cap Rate, NPV, tax analysis) plus city market data. Generation takes ~15–20 seconds.</span>
         </div>
       )}
     </div>
   );
-}
-
-// ─── Section parser ────────────────────────────────────────────────────────
-
-function parseMemSections(text: string): MemoSection[] {
-  const sectionTitles = [
-    "Investment Thesis",
-    "Key Risks",
-    "Financial Summary",
-    "Market Outlook",
-    "Scenario Analysis",
-    "Exit Strategy",
-    "Recommendation",
-  ];
-
-  const sections: MemoSection[] = [];
-
-  for (let i = 0; i < sectionTitles.length; i++) {
-    const title = sectionTitles[i];
-    const next = sectionTitles[i + 1];
-    const startRegex = new RegExp(`#{1,3}\\s*(?:\\d+\\.\\s*)?${title}`, "i");
-    const endRegex   = next ? new RegExp(`#{1,3}\\s*(?:\\d+\\.\\s*)?${next}`, "i") : null;
-
-    const startMatch = text.match(startRegex);
-    if (!startMatch || startMatch.index === undefined) continue;
-
-    const startIdx = startMatch.index + startMatch[0].length;
-    const endIdx   = endRegex ? (text.match(endRegex)?.index ?? text.length) : text.length;
-
-    const content = text.slice(startIdx, endIdx).trim();
-    sections.push({ title, content });
-  }
-
-  return sections.length > 0 ? sections : [{ title: "Investment Analysis", content: text.trim() }];
 }
