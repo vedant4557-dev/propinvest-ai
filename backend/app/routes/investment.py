@@ -121,3 +121,52 @@ async def analyze_portfolio(req: PortfolioRequest):
 @router.get("/health")
 def health():
     return {"status": "ok", "version": "3.0.0"}
+
+
+# ── Gemini debug endpoint (GET /test-gemini) ─────────────────────────────────
+# Visit https://propinvest-ai-production.up.railway.app/test-gemini to verify key + model
+
+@router.get("/test-gemini")
+async def test_gemini():
+    """Debug: test Gemini API key and model availability."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return {"error": "GEMINI_API_KEY not set in Railway Variables"}
+
+    results = {}
+
+    # 1. List available models
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+            )
+            data = r.json()
+            if "error" in data:
+                results["key_status"] = f"INVALID KEY: {data['error'].get('message', 'unknown')}"
+            else:
+                model_names = [m["name"] for m in data.get("models", [])]
+                flash_models = [m for m in model_names if "flash" in m]
+                results["key_status"] = "VALID"
+                results["flash_models_available"] = flash_models
+    except Exception as e:
+        results["key_check_error"] = str(e)
+
+    # 2. Quick non-streaming test with gemini-2.0-flash
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+                json={"contents": [{"parts": [{"text": "Say: OK"}]}],
+                      "generationConfig": {"maxOutputTokens": 10}},
+            )
+            data = r.json()
+            if "error" in data:
+                results["gemini_2_flash"] = f"ERROR: {data['error'].get('message')}"
+            else:
+                text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                results["gemini_2_flash"] = f"OK — response: {text!r}"
+    except Exception as e:
+        results["gemini_2_flash_error"] = str(e)
+
+    return results
