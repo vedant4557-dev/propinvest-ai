@@ -71,6 +71,8 @@ import { useDeals } from "@/hooks/useDeals";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthModal } from "@/components/AuthModal";
 import { UserMenu, SignInButton } from "@/components/UserMenu";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import AnalyzeSkeleton from "@/components/AnalyzeSkeleton";
 import type {
   InvestmentInput,
   AnalyzeInvestmentResponse,
@@ -201,7 +203,7 @@ export default function Home() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-white text-xs font-bold flex-shrink-0">P</div>
               <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100 hidden sm:block">
                 PropInvest <span className="text-primary-500">AI</span>
-                <span className="ml-1.5 rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.5</span>
+                <span className="ml-1.5 rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">V3.9</span>
               </h1>
             </Link>
             <Link href="/projects" className="hidden lg:block text-xs font-medium text-slate-400 hover:text-primary-500 transition-colors">Projects</Link>
@@ -339,7 +341,8 @@ export default function Home() {
                   {error}
                 </div>
               )}
-              {loading && <LoadingState />}
+              {loading && <AnalyzeSkeleton />}
+              <ErrorBoundary>
               {!loading && mode === "single" && result && inputs && (
                 <SingleResultView
                   result={result}
@@ -355,6 +358,7 @@ export default function Home() {
               {!loading && !result && !portfolioResult && !error && (
                 <EmptyState mode={mode} />
               )}
+              </ErrorBoundary>
             </div>
           </div>
         )}
