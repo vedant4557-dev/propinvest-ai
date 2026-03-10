@@ -1,14 +1,19 @@
 """
 AI Memo endpoint — PropInvest AI V3
 Uses httpx to call Gemini REST API directly (no SDK = no build errors)
+
+SECURITY:
+- /test-gemini endpoint REMOVED (was publicly exposing API key info)
+- Rate limiting: 5 memo requests per IP per hour via slowapi
 """
 
 import os
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import httpx
 
 from app.models.schemas import (
@@ -20,6 +25,9 @@ from app.services.portfolio_engine import build_portfolio
 
 router = APIRouter()
 
+# ── Rate limiter (5 AI memo requests per IP per hour) ──────────────────────
+limiter = Limiter(key_func=get_remote_address)
+
 
 # ── AI Memo endpoint ────────────────────────────────────────────────────────
 
@@ -28,14 +36,16 @@ class MemoRequest(BaseModel):
 
 
 @router.post("/generate-memo")
-async def generate_memo(req: MemoRequest):
-    """Stream AI investment memo via Gemini REST API (no SDK — avoids build-time credential errors)."""
-
+@limiter.limit("5/hour")
+async def generate_memo(req: MemoRequest, request: Request):
+    """Stream AI investment memo via Gemini REST API.
+    Rate limited: 5 requests per IP per hour.
+    """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
 
-    # ✅ Using gemini-2.5-flash — latest, fastest, confirmed available on this account
+    # gemini-2.5-flash — latest, confirmed available
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"gemini-2.5-flash:streamGenerateContent?alt=sse&key={api_key}"
@@ -45,7 +55,7 @@ async def generate_memo(req: MemoRequest):
         "contents": [{"parts": [{"text": req.prompt}]}],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 4096,  # increased — 2048 was cutting off 7-section memo
+            "maxOutputTokens": 4096,
         },
     }
 
@@ -66,7 +76,6 @@ async def generate_memo(req: MemoRequest):
                             continue
                         try:
                             chunk = json.loads(raw)
-                            # Gemini REST shape: candidates[0].content.parts[0].text
                             text = (
                                 chunk.get("candidates", [{}])[0]
                                 .get("content", {})
@@ -120,53 +129,4 @@ async def analyze_portfolio(req: PortfolioRequest):
 
 @router.get("/health")
 def health():
-    return {"status": "ok", "version": "3.0.0"}
-
-
-# ── Gemini debug endpoint (GET /test-gemini) ─────────────────────────────────
-# Visit https://propinvest-ai-production.up.railway.app/test-gemini to verify key + model
-
-@router.get("/test-gemini")
-async def test_gemini():
-    """Debug: test Gemini API key and model availability."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return {"error": "GEMINI_API_KEY not set in Railway Variables"}
-
-    results = {}
-
-    # 1. List available models
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(
-                f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-            )
-            data = r.json()
-            if "error" in data:
-                results["key_status"] = f"INVALID KEY: {data['error'].get('message', 'unknown')}"
-            else:
-                model_names = [m["name"] for m in data.get("models", [])]
-                flash_models = [m for m in model_names if "flash" in m]
-                results["key_status"] = "VALID"
-                results["flash_models_available"] = flash_models
-    except Exception as e:
-        results["key_check_error"] = str(e)
-
-    # 2. Quick non-streaming test with gemini-2.5-flash
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
-                json={"contents": [{"parts": [{"text": "Say: OK"}]}],
-                      "generationConfig": {"maxOutputTokens": 10}},
-            )
-            data = r.json()
-            if "error" in data:
-                results["gemini_2_5_flash"] = f"ERROR: {data['error'].get('message')}"
-            else:
-                text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                results["gemini_2_5_flash"] = f"OK — response: {text!r}"
-    except Exception as e:
-        results["gemini_2_5_flash_error"] = str(e)
-
-    return results
+    return {"status": "ok", "version": "3.9.0"}
