@@ -364,7 +364,7 @@ export function NiftyComparatorCard({ inputs, metrics, taxAnalysis }: Props) {
             <div key={s.key}>
               <label className="text-[10px] font-medium text-slate-500 mb-1 flex justify-between">
                 <span>{s.label}</span>
-                <span className="text-primary-500">{(cfg as Record<string, number>)[s.key]}%</span>
+                <span className="text-primary-500">{(cfg as unknown as Record<string, number>)[s.key]}%</span>
               </label>
               <input
                 type="range"
