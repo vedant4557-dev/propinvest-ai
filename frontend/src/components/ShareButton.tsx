@@ -24,7 +24,7 @@ interface ShareButtonProps {
   className?: string;
 }
 
-export default function ShareButton({ inputs, className = "" }: ShareButtonProps) {
+export function ShareButton({ inputs, className = "" }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
   function buildShareUrl(): string {
