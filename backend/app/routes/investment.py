@@ -45,13 +45,13 @@ async def generate_memo(req: MemoRequest):
         "contents": [{"parts": [{"text": req.prompt}]}],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 2048,
+            "maxOutputTokens": 4096,  # increased — 2048 was cutting off 7-section memo
         },
     }
 
     async def stream_response():
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=120) as client:
                 async with client.stream("POST", url, json=payload) as response:
                     if response.status_code != 200:
                         err = await response.aread()
