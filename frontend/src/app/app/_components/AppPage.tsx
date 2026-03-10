@@ -60,6 +60,7 @@ import { SmartSummaryBanner } from "@/components/SmartSummaryBanner";
 import { RenovationValueAddCard } from "@/components/RenovationValueAddCard";
 import { WealthBuilderCard } from "@/components/WealthBuilderCard";
 import { AIInvestmentMemo } from "@/components/AIInvestmentMemo";
+import { ListingSearch } from "@/components/ListingSearch";
 // V3.4 — Startup features: Share URL, Example Deals, Nifty Comparator
 import { ShareButton } from "@/components/ShareButton";
 import { ExampleDeals } from "@/components/ExampleDeals";
@@ -76,7 +77,7 @@ import type {
   AnalyzePortfolioResponse,
 } from "@/types/investment";
 
-type Mode = "single" | "portfolio" | "saved";
+type Mode = "single" | "portfolio" | "saved" | "listings";
 type Tab = "overview" | "simulation" | "tax" | "deal" | "ai" | "wealth";
 
 const TABS: { id: Tab; label: string; short: string }[] = [
@@ -116,6 +117,17 @@ export default function Home() {
       setShowExamples(false);
       handleAnalyze(sharedInput);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Listen for listing-sourced inputs (from ListingSearch → Analyze)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as InvestmentInput;
+      if (detail) handleAnalyze(detail);
+    };
+    window.addEventListener("propinvest:load-inputs", handler);
+    return () => window.removeEventListener("propinvest:load-inputs", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -197,19 +209,19 @@ export default function Home() {
           </div>
           {/* Mode switcher */}
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden flex-shrink-0">
-            {(["single", "portfolio", "saved"] as Mode[]).map((m) => (
+            {([["single","⊙","Analyze"],["portfolio","⊞","Portfolio"],["listings","🔍","Listings"],["saved",`★${deals.length}`,`Saved (${deals.length})`]] as [Mode,string,string][]).map(([m,icon,label]) => (
               <button
                 key={m}
                 onClick={() => switchMode(m)}
-                title={m === "saved" ? `Saved (${deals.length})` : m}
+                title={label}
                 className={`py-1.5 text-xs font-medium capitalize transition px-2 sm:px-3 ${
                   mode === m
                     ? "bg-primary-600 text-white dark:bg-primary-500"
                     : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                 }`}
               >
-                <span className="hidden sm:inline">{m === "saved" ? `Saved (${deals.length})` : m}</span>
-                <span className="sm:hidden">{m === "single" ? "⊙" : m === "portfolio" ? "⊞" : `★${deals.length}`}</span>
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{icon}</span>
               </button>
             ))}
           </div>
@@ -258,7 +270,19 @@ export default function Home() {
       )}
 
       <main className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
-        {mode === "saved" ? (
+        {mode === "listings" ? (
+          <ListingSearch
+            onAnalyze={(inputs) => {
+              // Load listing inputs into single analysis mode
+              switchMode("single");
+              // Slight delay so mode switch renders first
+              setTimeout(() => {
+                const evt = new CustomEvent("propinvest:load-inputs", { detail: inputs });
+                window.dispatchEvent(evt);
+              }, 100);
+            }}
+          />
+        ) : mode === "saved" ? (
           <div className="space-y-6">
             <SavedDealsPanel
               deals={deals}
