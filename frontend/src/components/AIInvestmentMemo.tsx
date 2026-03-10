@@ -488,7 +488,7 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
         <div
           ref={memoRef}
           id="propinvest-memo-print-root"
-          className="rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-5"
+          className="rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/50 p-5 max-h-[70vh] overflow-y-auto"
         >
           <MemoContent memo={memo} inputs={inputs} metrics={metrics} taxAnalysis={taxAnalysis} />
         </div>
