@@ -1,12 +1,16 @@
 """
-API Routes — PropInvest AI V3
+AI Memo endpoint — PropInvest AI V3
+Uses httpx to call Gemini REST API directly (no SDK = no build errors)
 """
+
 import os
 import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
+import httpx
+
 from app.models.schemas import (
     InvestmentInput, AnalyzeInvestmentResponse,
     PortfolioRequest, AnalyzePortfolioResponse,
@@ -17,10 +21,11 @@ from app.services.portfolio_engine import build_portfolio
 router = APIRouter()
 
 
-# ─── AI Memo endpoint ─────────────────────────────────────────────────────────
+# ── AI Memo endpoint ────────────────────────────────────────────────────────
 
 class MemoRequest(BaseModel):
     prompt: str
+
 
 @router.post("/generate-memo")
 async def generate_memo(req: MemoRequest):
@@ -30,9 +35,10 @@ async def generate_memo(req: MemoRequest):
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
 
+    # ✅ Updated from gemini-1.5-flash (shutdown Sep 24 2025) → gemini-2.0-flash
     url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-1.5-flash:streamGenerateContent?alt=sse&key={api_key}"
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-2.0-flash:streamGenerateContent?alt=sse&key={api_key}"
     )
 
     payload = {
@@ -51,6 +57,7 @@ async def generate_memo(req: MemoRequest):
                         err = await response.aread()
                         yield f"data: {json.dumps({'error': err.decode()})}\n\n"
                         return
+
                     async for line in response.aiter_lines():
                         if not line.startswith("data:"):
                             continue
@@ -59,6 +66,7 @@ async def generate_memo(req: MemoRequest):
                             continue
                         try:
                             chunk = json.loads(raw)
+                            # Gemini REST shape: candidates[0].content.parts[0].text
                             text = (
                                 chunk.get("candidates", [{}])[0]
                                 .get("content", {})
@@ -69,6 +77,7 @@ async def generate_memo(req: MemoRequest):
                                 yield f"data: {json.dumps({'delta': {'text': text}})}\n\n"
                         except Exception:
                             continue
+
             yield "data: [DONE]\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -83,6 +92,8 @@ async def generate_memo(req: MemoRequest):
     )
 
 
+# ── Investment analysis ─────────────────────────────────────────────────────
+
 @router.post("/analyze-investment", response_model=AnalyzeInvestmentResponse)
 async def analyze_investment(inp: InvestmentInput):
     try:
@@ -90,6 +101,8 @@ async def analyze_investment(inp: InvestmentInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Portfolio analysis ──────────────────────────────────────────────────────
 
 @router.post("/analyze-portfolio", response_model=AnalyzePortfolioResponse)
 async def analyze_portfolio(req: PortfolioRequest):
@@ -102,6 +115,8 @@ async def analyze_portfolio(req: PortfolioRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Health check ────────────────────────────────────────────────────────────
 
 @router.get("/health")
 def health():
