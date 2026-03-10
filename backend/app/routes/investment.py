@@ -24,23 +24,51 @@ class MemoRequest(BaseModel):
 
 @router.post("/generate-memo")
 async def generate_memo(req: MemoRequest):
-    """Stream AI investment memo via Google Gemini API."""
-    import google.generativeai as genai
+    """Stream AI investment memo via Gemini REST API (no SDK — avoids build-time credential errors)."""
 
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-1.5-flash:streamGenerateContent?alt=sse&key={api_key}"
+    )
 
-    def stream_response():
+    payload = {
+        "contents": [{"parts": [{"text": req.prompt}]}],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 2048,
+        },
+    }
+
+    async def stream_response():
         try:
-            response = model.generate_content(req.prompt, stream=True)
-            for chunk in response:
-                if chunk.text:
-                    payload = json.dumps({"delta": {"text": chunk.text}})
-                    yield f"data: {payload}\n\n"
+            async with httpx.AsyncClient(timeout=60) as client:
+                async with client.stream("POST", url, json=payload) as response:
+                    if response.status_code != 200:
+                        err = await response.aread()
+                        yield f"data: {json.dumps({'error': err.decode()})}\n\n"
+                        return
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        raw = line[5:].strip()
+                        if not raw or raw == "[DONE]":
+                            continue
+                        try:
+                            chunk = json.loads(raw)
+                            text = (
+                                chunk.get("candidates", [{}])[0]
+                                .get("content", {})
+                                .get("parts", [{}])[0]
+                                .get("text", "")
+                            )
+                            if text:
+                                yield f"data: {json.dumps({'delta': {'text': text}})}\n\n"
+                        except Exception:
+                            continue
             yield "data: [DONE]\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
