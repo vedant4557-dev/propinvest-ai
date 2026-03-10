@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import type { InvestmentInput, InvestmentMetrics, TaxAnalysis, AIAnalysis } from "@/types/investment";
 import { Tooltip } from "@/lib/glossary";
 
@@ -345,63 +347,66 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
     }
   };
 
-  // ── FIX: PDF export using a dedicated print container ──────────────────
-  const exportPDF = () => {
+  // ── PDF export using jsPDF + html2canvas — works on iOS Safari ────────────
+  const exportPDF = async () => {
     if (!memoRef.current) return;
 
-    // Build a full printable HTML page in a new window
-    const content = memoRef.current.innerHTML;
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (!win) {
-      // Fallback to window.print() if popup blocked
-      let style = document.getElementById("memo-print-style") as HTMLStyleElement | null;
-      if (!style) {
-        style = document.createElement("style");
-        style.id = "memo-print-style";
-        document.head.appendChild(style);
-      }
-      style.innerHTML = PRINT_CSS;
-      const root = document.getElementById("propinvest-memo-print-root");
-      if (root) root.style.display = "block";
-      window.print();
-      if (root) root.style.display = "none";
-      return;
-    }
+    // Temporarily remove max-height/overflow so html2canvas captures full content
+    const el = memoRef.current;
+    const prevMaxH = el.style.maxHeight;
+    const prevOverflow = el.style.overflow;
+    el.style.maxHeight = "none";
+    el.style.overflow = "visible";
 
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${memo?.property || "Investment Memo"} — PropInvest AI</title>
-          <meta charset="utf-8" />
-          <style>
-            * { box-sizing: border-box; }
-            body { font-family: Georgia, serif; color: #111; background: #fff; padding: 32px 40px; max-width: 800px; margin: 0 auto; }
-            h2 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
-            h3 { font-size: 14px; font-weight: 700; border-left: 4px solid #16a34a; padding-left: 10px; margin: 20px 0 6px; }
-            p, div { font-size: 13px; line-height: 1.7; }
-            .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
-            .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; text-align: center; }
-            .card-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
-            .card-value { font-size: 14px; font-weight: 700; color: #1e293b; }
-            .verdict { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
-            .avoid { background: #fee2e2; color: #991b1b; }
-            .buy   { background: #e0f2fe; color: #075985; }
-            .hold  { background: #fef3c7; color: #92400e; }
-            .strong-buy { background: #d1fae5; color: #065f46; }
-            .header-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
-            .section-content { padding-left: 14px; white-space: pre-wrap; font-size: 13px; color: #334155; }
-            .footer { border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
-            @media print { @page { margin: 15mm; } }
-          </style>
-        </head>
-        <body>
-          ${content}
-          <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
-        </body>
-      </html>
-    `);
-    win.document.close();
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pdfW) / canvas.width;
+
+      // Header
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("PropInvest AI — Investment Memorandum", pdfW / 2, 14, { align: "center" });
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.text("Institutional-grade analysis · Not financial advice", pdfW / 2, 20, { align: "center" });
+
+      // Add image — paginate if content is taller than one page
+      const margin = 10;
+      const contentTop = 25;
+      const availH = pdfH - contentTop - margin;
+
+      if (imgH <= availH) {
+        pdf.addImage(imgData, "PNG", margin, contentTop, pdfW - margin * 2, imgH);
+      } else {
+        // Multi-page: slice the canvas across pages
+        let yOffset = 0;
+        let isFirst = true;
+        while (yOffset < imgH) {
+          if (!isFirst) pdf.addPage();
+          const sliceH = Math.min(availH, imgH - yOffset);
+          pdf.addImage(imgData, "PNG", margin, isFirst ? contentTop : margin, pdfW - margin * 2, imgH, "", "FAST", 0, -(yOffset));
+          yOffset += sliceH;
+          isFirst = false;
+        }
+      }
+
+      const filename = `propinvest-memo-${(memo?.property || "property").replace(/\s+/g, "-").toLowerCase()}.pdf`;
+      pdf.save(filename);
+    } finally {
+      // Restore styles
+      el.style.maxHeight = prevMaxH;
+      el.style.overflow = prevOverflow;
+    }
   };
 
   return (
@@ -426,7 +431,7 @@ Generate the memo with exactly these 7 sections. Be rigorous, specific, and use 
               onClick={exportPDF}
               className="flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
-              <span>⬇</span> Export PDF
+              ⬇ Export PDF
             </button>
           )}
           <button
