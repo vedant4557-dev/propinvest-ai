@@ -35,10 +35,10 @@ async def generate_memo(req: MemoRequest):
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
 
-    # ✅ Updated from gemini-1.5-flash (shutdown Sep 24 2025) → gemini-2.0-flash
+    # ✅ Using gemini-2.5-flash — latest, fastest, confirmed available on this account
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.0-flash:streamGenerateContent?alt=sse&key={api_key}"
+        f"gemini-2.5-flash:streamGenerateContent?alt=sse&key={api_key}"
     )
 
     payload = {
@@ -152,21 +152,21 @@ async def test_gemini():
     except Exception as e:
         results["key_check_error"] = str(e)
 
-    # 2. Quick non-streaming test with gemini-2.0-flash
+    # 2. Quick non-streaming test with gemini-2.5-flash
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
                 json={"contents": [{"parts": [{"text": "Say: OK"}]}],
                       "generationConfig": {"maxOutputTokens": 10}},
             )
             data = r.json()
             if "error" in data:
-                results["gemini_2_flash"] = f"ERROR: {data['error'].get('message')}"
+                results["gemini_2_5_flash"] = f"ERROR: {data['error'].get('message')}"
             else:
                 text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                results["gemini_2_flash"] = f"OK — response: {text!r}"
+                results["gemini_2_5_flash"] = f"OK — response: {text!r}"
     except Exception as e:
-        results["gemini_2_flash_error"] = str(e)
+        results["gemini_2_5_flash_error"] = str(e)
 
     return results
