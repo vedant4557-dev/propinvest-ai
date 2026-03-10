@@ -73,6 +73,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { UserMenu, SignInButton } from "@/components/UserMenu";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AnalyzeSkeleton from "@/components/AnalyzeSkeleton";
+import { OnboardingTooltip } from "@/components/OnboardingTooltip";
 import type {
   InvestmentInput,
   AnalyzeInvestmentResponse,
@@ -207,7 +208,7 @@ export default function Home() {
               </h1>
             </Link>
             <Link href="/projects" className="hidden lg:block text-xs font-medium text-slate-400 hover:text-primary-500 transition-colors">Projects</Link>
-            <Link href="/emi-calculator" className="hidden lg:block text-xs font-medium text-slate-400 hover:text-primary-500 transition-colors">EMI</Link>
+            <Link href="/emi-calculator" className="hidden lg:block text-xs font-medium text-slate-400 hover:text-primary-500 transition-colors">EMI Calculator</Link>
           </div>
           {/* Mode switcher */}
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden flex-shrink-0">
@@ -363,6 +364,8 @@ export default function Home() {
           </div>
         )}
       </main>
+      {/* First-time user onboarding */}
+      <OnboardingTooltip />
     </div>
   );
 }
