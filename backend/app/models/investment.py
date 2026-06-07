@@ -1,5 +1,5 @@
 """
-Pydantic models for investment analysis request and responsE.
+Pydantic models for investment analysis request and response.
 
 """
 
