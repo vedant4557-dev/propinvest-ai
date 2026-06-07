@@ -1,5 +1,6 @@
 """
-Pydantic models for investment analysis request and response.
+Pydantic models for investment analysis request and responsE.
+
 """
 
 from typing import Literal
